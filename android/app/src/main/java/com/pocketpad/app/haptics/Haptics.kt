@@ -28,17 +28,27 @@ class Haptics(context: Context) {
             context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         }
 
-    private val clickEffect: VibrationEffect? = when {
+    /** 0 light · 1 medium · 2 strong — set from Settings, read per tick. */
+    @Volatile
+    var strength: Int = 1
+
+    private val effects: Array<VibrationEffect>? = when {
         vibrator == null || !vibrator.hasVibrator() -> null
-        Build.VERSION.SDK_INT >= 29 ->
-            VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
-        else ->
-            VibrationEffect.createOneShot(18, VibrationEffect.DEFAULT_AMPLITUDE)
+        Build.VERSION.SDK_INT >= 29 -> arrayOf(
+            VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK),
+            VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK),
+            VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK),
+        )
+        else -> arrayOf(
+            VibrationEffect.createOneShot(10, 120),
+            VibrationEffect.createOneShot(18, VibrationEffect.DEFAULT_AMPLITUDE),
+            VibrationEffect.createOneShot(32, 255),
+        )
     }
 
     /** One short tick — a button registered. */
     fun tick() {
-        val fx = clickEffect ?: return
+        val fx = effects?.get(strength.coerceIn(0, 2)) ?: return
         val v = vibrator ?: return
         when {
             // Plain vibrate() gets USAGE_TOUCH attributes, and OEMs scale touch

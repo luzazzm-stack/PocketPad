@@ -21,26 +21,30 @@ public sealed class LinkSession : IDisposable
         : Exception("The ViGEm bus driver is not installed.", inner);
 
     private readonly ViGEmClient _vigem;
-    private readonly IXbox360Controller _pad;
+    private readonly IXbox360Controller?[] _pads = new IXbox360Controller?[StatePacket.MaxPlayers];
+    private readonly object _padLock = new();
     private readonly ControlServer _control;
     private readonly UdpStateListener _udp;
     private readonly MouseInjector _mouse = new();
     private readonly CancellationTokenSource _cts = new();
     private long _packets;
+    private int _phoneCount;
 
     /// <summary>Pairing token, regenerated per session (per app launch).</summary>
     public string Token { get; }
 
-    /// <summary>Phone connected: device name + remote address.</summary>
-    public event Action<string, IPEndPoint>? PhoneConnected;
+    /// <summary>Phone connected: (player, device name, remote address).</summary>
+    public event Action<int, string, IPEndPoint>? PhoneConnected;
 
-    /// <summary>Phone gone; argument is packets received this session.</summary>
-    public event Action<long>? PhoneDisconnected;
+    /// <summary>A phone left: (player, phones still connected).</summary>
+    public event Action<int, int>? PhoneDisconnected;
 
-    /// <summary>Phone-measured round-trip in ms (the "lat" control message).</summary>
-    public event Action<int>? LatencyReported;
+    /// <summary>Phone-measured round-trip: (player, ms).</summary>
+    public event Action<int, int>? LatencyReported;
 
     public long PacketsReceived => Interlocked.Read(ref _packets);
+
+    public int PhoneCount => Volatile.Read(ref _phoneCount);
 
     public LinkSession()
     {
@@ -53,28 +57,58 @@ public sealed class LinkSession : IDisposable
             throw new DriverMissingException(e);
         }
 
-        _pad = _vigem.CreateXbox360Controller();
-        _pad.Connect();
+        // Player 0's pad stays alive for the whole session so a game launched
+        // before the phone connects still finds a controller. Pads 1-3 are
+        // created when their phone joins and released when it leaves.
+        _pads[0] = _vigem.CreateXbox360Controller();
+        _pads[0]!.Connect();
 
         Token = RandomNumberGenerator.GetHexString(8, lowercase: true);
         _control = new ControlServer(Token);
         _udp = new UdpStateListener();
 
-        _control.ClientConnected += (name, ep) =>
+        _control.ClientConnected += (player, name, ep) =>
         {
-            _udp.ResetSequence();
-            PhoneConnected?.Invoke(name, ep);
+            lock (_padLock)
+            {
+                if (_pads[player] is null)
+                {
+                    _pads[player] = _vigem.CreateXbox360Controller();
+                    _pads[player]!.Connect();
+                }
+            }
+            _udp.ResetSequence(player);
+            Interlocked.Increment(ref _phoneCount);
+            PhoneConnected?.Invoke(player, name, ep);
         };
-        _control.ClientDisconnected += () =>
+        _control.ClientDisconnected += player =>
         {
-            ResetPad();
+            lock (_padLock)
+            {
+                if (_pads[player] is { } pad)
+                {
+                    ApplyState(pad, new StatePacket(0, PadButtons.None, Dpad.Neutral, 0, 0, 0, 0));
+                    if (player != 0) // player 0's pad survives for relaunch-free reconnects
+                    {
+                        pad.Disconnect();
+                        _pads[player] = null;
+                    }
+                }
+            }
             _mouse.ReleaseAll();
-            var count = Interlocked.Exchange(ref _packets, 0);
-            PhoneDisconnected?.Invoke(count);
+            var remaining = Interlocked.Decrement(ref _phoneCount);
+            PhoneDisconnected?.Invoke(player, remaining);
         };
-        _control.LatencyReported += ms => LatencyReported?.Invoke(ms);
+        _control.LatencyReported += (player, ms) => LatencyReported?.Invoke(player, ms);
 
-        _udp.StateReceived += (state, _) => { ApplyState(state); Interlocked.Increment(ref _packets); };
+        _udp.StateReceived += (state, _) =>
+        {
+            lock (_padLock)
+            {
+                if (_pads[state.Player] is { } pad) ApplyState(pad, state);
+            }
+            Interlocked.Increment(ref _packets);
+        };
         _udp.MouseReceived += (m, _) => { _mouse.Apply(m); Interlocked.Increment(ref _packets); };
     }
 
@@ -82,8 +116,8 @@ public sealed class LinkSession : IDisposable
     public Task RunAsync() =>
         Task.WhenAll(_control.RunAsync(_cts.Token), _udp.RunAsync(_cts.Token));
 
-    /// <summary>Kick the current phone off (the UI's Disconnect button).</summary>
-    public void DisconnectPhone() => _control.DisconnectClient();
+    /// <summary>Kick every connected phone off (the UI's Disconnect button).</summary>
+    public void DisconnectPhones() => _control.DisconnectAll();
 
     /// <summary>
     /// The machine's primary LAN IPv4 — the address a phone on the same network
@@ -113,22 +147,22 @@ public sealed class LinkSession : IDisposable
     public string PairingUri(IPAddress host) =>
         $"pocketpad://pair?host={host}&tcp={ControlServer.DefaultPort}&token={Token}";
 
-    private void ApplyState(StatePacket s)
+    private static void ApplyState(IXbox360Controller pad, StatePacket s)
     {
         var b = s.Buttons;
-        _pad.SetButtonState(Xbox360Button.A, b.HasFlag(PadButtons.A));
-        _pad.SetButtonState(Xbox360Button.B, b.HasFlag(PadButtons.B));
-        _pad.SetButtonState(Xbox360Button.X, b.HasFlag(PadButtons.X));
-        _pad.SetButtonState(Xbox360Button.Y, b.HasFlag(PadButtons.Y));
-        _pad.SetButtonState(Xbox360Button.LeftShoulder, b.HasFlag(PadButtons.LB));
-        _pad.SetButtonState(Xbox360Button.RightShoulder, b.HasFlag(PadButtons.RB));
-        _pad.SetButtonState(Xbox360Button.Back, b.HasFlag(PadButtons.Back));
-        _pad.SetButtonState(Xbox360Button.Start, b.HasFlag(PadButtons.Start));
-        _pad.SetButtonState(Xbox360Button.LeftThumb, b.HasFlag(PadButtons.L3));
-        _pad.SetButtonState(Xbox360Button.RightThumb, b.HasFlag(PadButtons.R3));
+        pad.SetButtonState(Xbox360Button.A, b.HasFlag(PadButtons.A));
+        pad.SetButtonState(Xbox360Button.B, b.HasFlag(PadButtons.B));
+        pad.SetButtonState(Xbox360Button.X, b.HasFlag(PadButtons.X));
+        pad.SetButtonState(Xbox360Button.Y, b.HasFlag(PadButtons.Y));
+        pad.SetButtonState(Xbox360Button.LeftShoulder, b.HasFlag(PadButtons.LB));
+        pad.SetButtonState(Xbox360Button.RightShoulder, b.HasFlag(PadButtons.RB));
+        pad.SetButtonState(Xbox360Button.Back, b.HasFlag(PadButtons.Back));
+        pad.SetButtonState(Xbox360Button.Start, b.HasFlag(PadButtons.Start));
+        pad.SetButtonState(Xbox360Button.LeftThumb, b.HasFlag(PadButtons.L3));
+        pad.SetButtonState(Xbox360Button.RightThumb, b.HasFlag(PadButtons.R3));
 
-        _pad.SetSliderValue(Xbox360Slider.LeftTrigger, b.HasFlag(PadButtons.LT) ? (byte)255 : (byte)0);
-        _pad.SetSliderValue(Xbox360Slider.RightTrigger, b.HasFlag(PadButtons.RT) ? (byte)255 : (byte)0);
+        pad.SetSliderValue(Xbox360Slider.LeftTrigger, b.HasFlag(PadButtons.LT) ? (byte)255 : (byte)0);
+        pad.SetSliderValue(Xbox360Slider.RightTrigger, b.HasFlag(PadButtons.RT) ? (byte)255 : (byte)0);
 
         (bool up, bool right, bool down, bool left) = s.Dpad switch
         {
@@ -142,26 +176,29 @@ public sealed class LinkSession : IDisposable
             Dpad.UpLeft    => (true, false, false, true),
             _              => (false, false, false, false),
         };
-        _pad.SetButtonState(Xbox360Button.Up, up);
-        _pad.SetButtonState(Xbox360Button.Right, right);
-        _pad.SetButtonState(Xbox360Button.Down, down);
-        _pad.SetButtonState(Xbox360Button.Left, left);
+        pad.SetButtonState(Xbox360Button.Up, up);
+        pad.SetButtonState(Xbox360Button.Right, right);
+        pad.SetButtonState(Xbox360Button.Down, down);
+        pad.SetButtonState(Xbox360Button.Left, left);
 
-        _pad.SetAxisValue(Xbox360Axis.LeftThumbX, s.Lx);
-        _pad.SetAxisValue(Xbox360Axis.LeftThumbY, s.Ly);
-        _pad.SetAxisValue(Xbox360Axis.RightThumbX, s.Rx);
-        _pad.SetAxisValue(Xbox360Axis.RightThumbY, s.Ry);
+        pad.SetAxisValue(Xbox360Axis.LeftThumbX, s.Lx);
+        pad.SetAxisValue(Xbox360Axis.LeftThumbY, s.Ly);
+        pad.SetAxisValue(Xbox360Axis.RightThumbX, s.Rx);
+        pad.SetAxisValue(Xbox360Axis.RightThumbY, s.Ry);
 
-        _pad.SubmitReport();
+        pad.SubmitReport();
     }
-
-    private void ResetPad() =>
-        ApplyState(new StatePacket(0, PadButtons.None, Dpad.Neutral, 0, 0, 0, 0));
 
     public void Dispose()
     {
         _cts.Cancel();
-        try { _pad.Disconnect(); } catch (InvalidOperationException) { /* never connected */ }
+        lock (_padLock)
+        {
+            foreach (var pad in _pads)
+            {
+                try { pad?.Disconnect(); } catch (InvalidOperationException) { /* never connected */ }
+            }
+        }
         _control.Dispose();
         _udp.Dispose();
         _vigem.Dispose();

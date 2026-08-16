@@ -103,6 +103,7 @@ class PadConnection(
                     return@launch
                 }
                 val udpPort = reply.optInt("udp", 46821)
+                val player = reply.optInt("player", 0) // our slot: stamped into every packet
                 onEvent(Event.Connected)
 
                 // ---- UDP sender: 125 Hz ----
@@ -125,19 +126,19 @@ class PadConnection(
                             // Emit one neutral packet of the mode we're leaving so the
                             // PC releases whatever was held (PROTOCOL.md, mode switch).
                             if (m == Mode.MOUSE) {
-                                send(StatePacket.encode(seq, PadState(), padBuf))
+                                send(StatePacket.encode(seq, PadState(), player, padBuf))
                             } else {
-                                send(MousePacket.encode(seq, MouseState(), mouseBuf))
+                                send(MousePacket.encode(seq, MouseState(), player, mouseBuf))
                             }
                             lastMode = m
                         }
 
                         if (m == Mode.PAD) {
-                            send(StatePacket.encode(seq, state.get(), padBuf))
+                            send(StatePacket.encode(seq, state.get(), player, padBuf))
                         } else {
                             // Deltas are consumed: take them and zero them atomically.
                             val snapshot = mouse.getAndUpdate { it.consumed() }
-                            send(MousePacket.encode(seq, snapshot, mouseBuf))
+                            send(MousePacket.encode(seq, snapshot, player, mouseBuf))
                         }
                         delay(8) // 125 Hz
                     }

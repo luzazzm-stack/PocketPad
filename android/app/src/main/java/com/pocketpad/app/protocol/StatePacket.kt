@@ -60,7 +60,7 @@ object StatePacket {
     const val MAGIC: Byte = 0x50 // 'P'
     const val VERSION: Byte = 0x01
 
-    fun encode(seq: Int, s: PadState, dest: ByteArray = ByteArray(SIZE)): ByteArray {
+    fun encode(seq: Int, s: PadState, player: Int = 0, dest: ByteArray = ByteArray(SIZE)): ByteArray {
         require(dest.size >= SIZE)
         ByteBuffer.wrap(dest).order(ByteOrder.LITTLE_ENDIAN)
             .put(MAGIC)
@@ -68,7 +68,7 @@ object StatePacket {
             .putShort(seq.toShort())            // u16 on the wire
             .putShort(s.buttons.toShort())      // u16 bitmask
             .put(s.dpad.wire.toByte())
-            .put(0)                             // reserved
+            .put(player.coerceIn(0, 3).toByte()) // slot from welcome.player
             .putShort(s.lx)
             .putShort(s.ly)
             .putShort(s.rx)

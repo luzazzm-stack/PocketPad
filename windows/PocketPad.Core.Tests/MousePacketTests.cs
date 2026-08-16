@@ -11,7 +11,7 @@ public class MousePacketTests
         var original = new MousePacket(
             Seq: 4242,
             Buttons: MouseButtons.Left | MouseButtons.Middle,
-            Dx: -1200, Dy: 900, Wheel: -3);
+            Dx: -1200, Dy: 900, Wheel: -3, Player: 1);
 
         Span<byte> buf = stackalloc byte[MousePacket.Size];
         original.Encode(buf);
@@ -27,7 +27,7 @@ public class MousePacketTests
         var p = new MousePacket(
             Seq: 0x0201,
             Buttons: MouseButtons.Right,     // 0x02
-            Dx: -2, Dy: 0x1122, Wheel: -1);
+            Dx: -2, Dy: 0x1122, Wheel: -1, Player: 3);
 
         var buf = new byte[MousePacket.Size];
         p.Encode(buf);
@@ -37,7 +37,7 @@ public class MousePacketTests
             0x4D, 0x01,             // magic 'M', version 1
             0x01, 0x02,             // seq LE
             0x02,                   // buttons: Right
-            0x00,                   // reserved
+            0x03,                   // player 3
             0xFE, 0xFF,             // dx = -2 LE
             0x22, 0x11,             // dy LE
             0xFF,                   // wheel = -1

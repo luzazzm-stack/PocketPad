@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
@@ -21,6 +22,7 @@ public partial class MainWindow : Window
     private System.Windows.Forms.NotifyIcon? _tray;
     private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly List<int> _latHistory = new();
+    private readonly Dictionary<int, (string Name, int? Ms)> _phones = new();
     private DateTime _connectedAtUtc;
     private bool _reallyExit;
     private bool _shownTrayHint;
@@ -51,29 +53,52 @@ public partial class MainWindow : Window
         var ip = LinkSession.PrimaryIPv4();
         AddrText.Text = ip.ToString();
         CodeText.Text = _session.Token;
-        QrImage.Source = MakeQr(_session.PairingUri(ip));
+        var qr = MakeQr(_session.PairingUri(ip));
+        QrImage.Source = qr;
+        QrImageSmall.Source = qr;
 
-        _session.PhoneConnected += (name, _) => Dispatcher.Invoke(() =>
+        _session.PhoneConnected += (player, name, _) => Dispatcher.Invoke(() =>
         {
-            PhoneName.Text = $"{name} connected";
-            _connectedAtUtc = DateTime.UtcNow;
-            _latHistory.Clear();
-            MsText.Text = "—";
+            bool first = _phones.Count == 0;
+            _phones[player] = (name, null);
+            if (first)
+            {
+                _connectedAtUtc = DateTime.UtcNow;
+                _latHistory.Clear();
+                MsText.Text = "—";
+                _tick.Start();
+            }
+            RefreshPhones();
             ShowView(ConnectedView);
-            _tick.Start();
-            _tray!.Text = "PocketPad — connected";
-            _tray.ShowBalloonTip(1800, "PocketPad", $"{name} connected. Start your game!",
+            _tray!.Text = $"PocketPad — {_phones.Count} connected";
+            _tray.ShowBalloonTip(1800, "PocketPad",
+                $"{name} connected as player {player + 1}. Start your game!",
                 System.Windows.Forms.ToolTipIcon.Info);
         });
 
-        _session.PhoneDisconnected += _ => Dispatcher.Invoke(() =>
+        _session.PhoneDisconnected += (player, remaining) => Dispatcher.Invoke(() =>
         {
-            _tick.Stop();
-            ShowView(WaitingView);
-            _tray!.Text = "PocketPad — waiting for phone";
+            _phones.Remove(player);
+            if (remaining <= 0 || _phones.Count == 0)
+            {
+                _tick.Stop();
+                ShowView(WaitingView);
+                _tray!.Text = "PocketPad — waiting for phone";
+            }
+            else
+            {
+                RefreshPhones();
+                _tray!.Text = $"PocketPad — {_phones.Count} connected";
+            }
         });
 
-        _session.LatencyReported += ms => Dispatcher.Invoke(() => OnLatency(ms));
+        _session.LatencyReported += (player, ms) => Dispatcher.Invoke(() =>
+        {
+            if (_phones.TryGetValue(player, out var p))
+                _phones[player] = (p.Name, ms);
+            RefreshPhones();
+            OnLatency(ms);
+        });
 
         ShowView(WaitingView);
         _ = RunSessionAsync(_session);
@@ -97,6 +122,33 @@ public partial class MainWindow : Window
     }
 
     // ================= UI plumbing =================
+
+    private void RefreshPhones()
+    {
+        PhoneName.Text = _phones.Count == 1
+            ? $"{_phones.Values.First().Name} connected"
+            : $"{_phones.Count} phones connected";
+
+        PhonesList.Children.Clear();
+        foreach (var (player, info) in _phones.OrderBy(kv => kv.Key))
+        {
+            var row = new TextBlock
+            {
+                FontSize = 12.5,
+                Foreground = (Brush)FindResource("InkSoft"),
+                Margin = new Thickness(0, 0, 0, 3),
+                Text = $"P{player + 1}   {info.Name}" +
+                       (info.Ms is int ms ? $"   ·   {ms} ms" : ""),
+            };
+            PhonesList.Children.Add(row);
+        }
+
+        bool full = _phones.Count >= 4;
+        AddPhonePanel.Visibility = full ? Visibility.Collapsed : Visibility.Visible;
+        AddPhoneCaption.Text = full
+            ? "All 4 player slots in use"
+            : "Add another phone — scan\n(up to 4 players)";
+    }
 
     private void ShowView(UIElement view)
     {
@@ -232,7 +284,7 @@ public partial class MainWindow : Window
     private void OnCloseToTray(object sender, RoutedEventArgs e) => Close();
     private void OnCopyAddr(object sender, RoutedEventArgs e) => Clipboard.SetText(AddrText.Text);
     private void OnCopyCode(object sender, RoutedEventArgs e) => Clipboard.SetText(CodeText.Text);
-    private void OnDisconnectPhone(object sender, RoutedEventArgs e) => _session?.DisconnectPhone();
+    private void OnDisconnectPhone(object sender, RoutedEventArgs e) => _session?.DisconnectPhones();
 
     private void OnGetDriver(object sender, RoutedEventArgs e) =>
         Process.Start(new ProcessStartInfo("https://github.com/nefarius/ViGEmBus/releases/latest")

@@ -35,20 +35,20 @@ Console.ResetColor();
 Console.WriteLine();
 Console.WriteLine("  Waiting for the phone...        (Ctrl+C to stop)");
 
-session.PhoneConnected += (name, ep) =>
+session.PhoneConnected += (player, name, ep) =>
 {
     Console.ForegroundColor = ConsoleColor.Green;
-    Console.WriteLine($"  CONNECTED   {name}  ({ep.Address})");
+    Console.WriteLine($"  CONNECTED   P{player + 1}  {name}  ({ep.Address})");
     Console.ResetColor();
 };
-session.PhoneDisconnected += packets =>
+session.PhoneDisconnected += (player, remaining) =>
 {
     Console.ForegroundColor = ConsoleColor.Yellow;
-    Console.WriteLine($"  Disconnected. ({packets:N0} inputs)");
+    Console.WriteLine($"  P{player + 1} disconnected ({remaining} still connected).");
     Console.ResetColor();
-    Console.WriteLine("  Waiting for the phone again...");
 };
-session.LatencyReported += ms => Console.Title = $"PocketPad (dev console) — {ms} ms";
+session.LatencyReported += (player, ms) =>
+    Console.Title = $"PocketPad (dev console) — P{player + 1}: {ms} ms";
 
 using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };

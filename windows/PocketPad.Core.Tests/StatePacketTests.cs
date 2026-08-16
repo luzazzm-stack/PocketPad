@@ -12,7 +12,8 @@ public class StatePacketTests
             Seq: 12345,
             Buttons: PadButtons.A | PadButtons.RB | PadButtons.Start | PadButtons.LT,
             Dpad: Dpad.DownLeft,
-            Lx: -32768, Ly: 32767, Rx: -1, Ry: 12345);
+            Lx: -32768, Ly: 32767, Rx: -1, Ry: 12345,
+            Player: 3);
 
         Span<byte> buf = stackalloc byte[StatePacket.Size];
         original.Encode(buf);
@@ -30,7 +31,8 @@ public class StatePacketTests
             Seq: 0x0201,
             Buttons: PadButtons.A | PadButtons.Y, // 0b1001 = 0x0009
             Dpad: Dpad.Right,                     // 3
-            Lx: 0x1122, Ly: -2, Rx: 0, Ry: 0x7FFF);
+            Lx: 0x1122, Ly: -2, Rx: 0, Ry: 0x7FFF,
+            Player: 2);
 
         var buf = new byte[StatePacket.Size];
         p.Encode(buf);
@@ -41,12 +43,21 @@ public class StatePacketTests
             0x01, 0x02,             // seq 0x0201 LE
             0x09, 0x00,             // buttons LE
             0x03,                   // dpad Right
-            0x00,                   // reserved
+            0x02,                   // player 2
             0x22, 0x11,             // lx LE
             0xFE, 0xFF,             // ly = -2 LE
             0x00, 0x00,             // rx
             0xFF, 0x7F,             // ry = 32767 LE
         }, buf);
+    }
+
+    [Fact]
+    public void TryDecode_RejectsOutOfRangePlayer()
+    {
+        var buf = new byte[StatePacket.Size];
+        new StatePacket(1, PadButtons.None, Dpad.Neutral, 0, 0, 0, 0).Encode(buf);
+        buf[7] = 4; // MaxPlayers is 4, so valid ids are 0-3
+        Assert.False(StatePacket.TryDecode(buf, out _));
     }
 
     [Theory]

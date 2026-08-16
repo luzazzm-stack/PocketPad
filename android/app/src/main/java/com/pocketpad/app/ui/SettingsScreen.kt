@@ -27,6 +27,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.Box
+import com.pocketpad.app.haptics.LocalHaptics
 import com.pocketpad.app.settings.AppSettings
 
 /** Settings: layout customizer entry, haptics, trackpad speed. */
@@ -76,6 +78,39 @@ fun SettingsScreen(
                         checkedThumbColor = Color(0xFF14151D),
                     ),
                 )
+            },
+            below = if (!settings.haptics) null else {
+                {
+                    val haptics = LocalHaptics.current
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf("Light", "Medium", "Strong").forEachIndexed { i, label ->
+                            val selected = settings.hapticStrength == i
+                            Box(
+                                Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(9.dp))
+                                    .background(if (selected) Color(0xFF7AA2F7) else Color(0xFF262A3A))
+                                    .clickable {
+                                        onChange(settings.copy(hapticStrength = i))
+                                        haptics.strength = i
+                                        haptics.tick() // preview the level you just picked
+                                    }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    label,
+                                    color = if (selected) Color(0xFF14151D) else Color(0xFF98A2C0),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                )
+                            }
+                        }
+                    }
+                }
             },
         )
 

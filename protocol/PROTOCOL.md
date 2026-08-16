@@ -23,7 +23,7 @@ than the newest seen (accounting for u16 wraparound).
 | 2      | 2    | seq      | u16, wraps; monotonically increasing |
 | 4      | 2    | buttons  | u16 bitmask, see below |
 | 6      | 1    | dpad     | u8, see below |
-| 7      | 1    | reserved | `0x00` |
+| 7      | 1    | player   | u8 0–3, echoed from `welcome.player` (below) |
 | 8      | 2    | lx       | i16, −32768..32767, left stick X |
 | 10     | 2    | ly       | i16, left stick Y (up = +32767) |
 | 12     | 2    | rx       | i16, right stick X |
@@ -66,7 +66,7 @@ and one `seq` space.
 | 1      | 1    | version  | `0x01` |
 | 2      | 2    | seq      | u16, shared counter with the state packet |
 | 4      | 1    | buttons  | u8: bit0 Left, bit1 Right, bit2 Middle |
-| 5      | 1    | reserved | `0x00` |
+| 5      | 1    | player   | u8 0–3, echoed from `welcome.player` |
 | 6      | 2    | dx       | i16, relative, +right |
 | 8      | 2    | dy       | i16, relative, +down |
 | 10     | 1    | wheel    | i8, notches, +up |
@@ -80,14 +80,23 @@ On mode switch the sender emits one neutral packet of the mode it is *leaving*
 | Message | Direction | Shape |
 |---------|-----------|-------|
 | hello   | phone → PC | `{"t":"hello","v":1,"name":"<device name>","token":"<pairing token>"}` |
-| welcome | PC → phone | `{"t":"welcome","v":1,"udp":46821}` — token accepted |
-| reject  | PC → phone | `{"t":"reject","reason":"token"\|"version"}` then close |
+| welcome | PC → phone | `{"t":"welcome","v":1,"udp":46821,"player":0}` — token accepted; `player` (0–3) is the slot this phone must stamp into every UDP packet |
+| reject  | PC → phone | `{"t":"reject","reason":"token"\|"version"\|"busy"}` then close — `busy` = all 4 player slots taken |
 | ping    | phone → PC | `{"t":"ping","id":123,"ts":<phone ms>}` every 1 s |
 | pong    | PC → phone | `{"t":"pong","id":123,"ts":<echoed>}` — phone computes RTT for latency meter |
 | lat     | phone → PC | `{"t":"lat","ms":4}` — phone reports the RTT it just measured, so the PC UI can show it too. Optional; PC must tolerate its absence |
 | bye     | either     | `{"t":"bye"}` graceful disconnect |
 
-Disconnect = TCP close or 5 s without state packets → PC releases the virtual pad.
+Disconnect = TCP close or 5 s without state packets → PC releases that player's
+virtual pad.
+
+## Multiplayer
+
+Up to **4 phones** connect to one PC, each getting its own virtual Xbox pad
+(player 0–3, lowest free slot assigned at handshake). Sequence numbers are
+tracked per player. A phone that predates this field always sends `player=0`,
+which is only correct for the first phone — multiplayer needs current apps on
+both ends.
 
 ## Pairing QR code
 

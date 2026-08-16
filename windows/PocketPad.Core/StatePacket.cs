@@ -50,8 +50,11 @@ public readonly record struct StatePacket(
     short Lx,
     short Ly,
     short Rx,
-    short Ry)
+    short Ry,
+    byte Player = 0)
 {
+    public const int MaxPlayers = 4;
+
     public const byte Magic = 0x50; // 'P'
     public const byte Version = 0x01;
     public const int Size = 16;
@@ -67,7 +70,7 @@ public readonly record struct StatePacket(
         BinaryPrimitives.WriteUInt16LittleEndian(dest[2..], Seq);
         BinaryPrimitives.WriteUInt16LittleEndian(dest[4..], (ushort)Buttons);
         dest[6] = (byte)Dpad;
-        dest[7] = 0; // reserved
+        dest[7] = Player;
         BinaryPrimitives.WriteInt16LittleEndian(dest[8..], Lx);
         BinaryPrimitives.WriteInt16LittleEndian(dest[10..], Ly);
         BinaryPrimitives.WriteInt16LittleEndian(dest[12..], Rx);
@@ -87,6 +90,9 @@ public readonly record struct StatePacket(
         byte dpad = src[6];
         if (dpad > (byte)Dpad.UpLeft)
             return false;
+        byte player = src[7];
+        if (player >= MaxPlayers)
+            return false;
 
         packet = new StatePacket(
             Seq: BinaryPrimitives.ReadUInt16LittleEndian(src[2..]),
@@ -95,7 +101,8 @@ public readonly record struct StatePacket(
             Lx: BinaryPrimitives.ReadInt16LittleEndian(src[8..]),
             Ly: BinaryPrimitives.ReadInt16LittleEndian(src[10..]),
             Rx: BinaryPrimitives.ReadInt16LittleEndian(src[12..]),
-            Ry: BinaryPrimitives.ReadInt16LittleEndian(src[14..]));
+            Ry: BinaryPrimitives.ReadInt16LittleEndian(src[14..]),
+            Player: player);
         return true;
     }
 

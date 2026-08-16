@@ -13,8 +13,8 @@ public sealed class UdpStateListener : IDisposable
     public const int DefaultPort = 46821;
 
     private readonly UdpClient _udp;
-    private ushort _lastSeq;
-    private bool _first = true;
+    private readonly ushort[] _lastSeq = new ushort[StatePacket.MaxPlayers];
+    private readonly bool[] _first = { true, true, true, true };
 
     /// <summary>Fired for every accepted (fresh) pad state packet.</summary>
     public event Action<StatePacket, IPEndPoint>? StateReceived;
@@ -52,17 +52,18 @@ public sealed class UdpStateListener : IDisposable
 
             // Dispatch on the magic byte: pad state or trackpad.
             ushort seq;
+            byte player;
             bool isPad = StatePacket.TryDecode(result.Buffer, out var pad);
             MousePacket mouse = default;
-            if (isPad) seq = pad.Seq;
-            else if (MousePacket.TryDecode(result.Buffer, out mouse)) seq = mouse.Seq;
+            if (isPad) { seq = pad.Seq; player = pad.Player; }
+            else if (MousePacket.TryDecode(result.Buffer, out mouse)) { seq = mouse.Seq; player = mouse.Player; }
             else continue;
 
-            if (!_first && !StatePacket.IsNewer(seq, _lastSeq))
-                continue; // stale or duplicate
+            if (!_first[player] && !StatePacket.IsNewer(seq, _lastSeq[player]))
+                continue; // stale or duplicate for this player
 
-            _first = false;
-            _lastSeq = seq;
+            _first[player] = false;
+            _lastSeq[player] = seq;
             LastPacketUtc = DateTime.UtcNow;
 
             if (isPad) StateReceived?.Invoke(pad, result.RemoteEndPoint);
@@ -70,8 +71,8 @@ public sealed class UdpStateListener : IDisposable
         }
     }
 
-    /// <summary>Reset sequence tracking (call when a new client connects).</summary>
-    public void ResetSequence() => _first = true;
+    /// <summary>Reset one player's sequence tracking (call when that phone connects).</summary>
+    public void ResetSequence(int player) => _first[player] = true;
 
     public void Dispose() => _udp.Dispose();
 }

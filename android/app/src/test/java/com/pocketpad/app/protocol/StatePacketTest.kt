@@ -17,6 +17,7 @@ class StatePacketTest {
                 dpad = Dpad.RIGHT,                // 3
                 lx = 0x1122, ly = -2, rx = 0, ry = 0x7FFF,
             ),
+            player = 2,
         )
 
         assertArrayEquals(
@@ -25,7 +26,7 @@ class StatePacketTest {
                 0x01, 0x02,                    // seq LE
                 0x09, 0x00,                    // buttons LE
                 0x03,                          // dpad Right
-                0x00,                          // reserved
+                0x02,                          // player 2
                 0x22, 0x11,                    // lx LE
                 0xFE.toByte(), 0xFF.toByte(),  // ly = -2 LE
                 0x00, 0x00,                    // rx

@@ -5,6 +5,7 @@
 **Turn your Android phone into a wireless game controller for Windows — with 3–5 ms latency.**
 
 Your phone becomes the gamepad. Your PC sees a real Xbox controller. Every game just works.
+**Up to 4 phones connect at once** — each gets its own controller, so two phones = instant local versus.
 
 </div>
 
@@ -66,6 +67,13 @@ instant.
 | START | OK / skip videos | Pause |
 | BACK | Go back | Change side |
 
+## Play with friends
+
+Up to **4 phones** join the same PC — each becomes its own Xbox controller
+(P1–P4, shown in the PC window with per-phone delay). Everyone scans the same
+QR; the connected view keeps showing it so the next player can join. Then just
+pick local versus in the game.
+
 ## Mouse mode
 
 A controller can't double-click a desktop icon. Tap **Mouse** at the top of the
@@ -79,6 +87,8 @@ click, scroll strip on the right edge, real click buttons along the bottom.
 Tap the **⚙ gear** on the gamepad:
 
 ![The settings screen: customize layout, vibrate on press, mouse speed](docs/images/phone-settings.png)
+
+**Vibrate on press** has Light / Medium / Strong levels — tap one to feel it.
 
 **Customize layout** lets you drag the cross and the buttons anywhere your
 thumbs prefer, and resize them — saved permanently:

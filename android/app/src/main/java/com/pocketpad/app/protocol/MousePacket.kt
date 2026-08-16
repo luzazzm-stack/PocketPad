@@ -30,14 +30,14 @@ object MousePacket {
     const val MAGIC: Byte = 0x4D // 'M'
     const val VERSION: Byte = 0x01
 
-    fun encode(seq: Int, s: MouseState, dest: ByteArray = ByteArray(SIZE)): ByteArray {
+    fun encode(seq: Int, s: MouseState, player: Int = 0, dest: ByteArray = ByteArray(SIZE)): ByteArray {
         require(dest.size >= SIZE)
         ByteBuffer.wrap(dest).order(ByteOrder.LITTLE_ENDIAN)
             .put(MAGIC)
             .put(VERSION)
             .putShort(seq.toShort())
             .put((s.buttons and 0b111).toByte())
-            .put(0)
+            .put(player.coerceIn(0, 3).toByte()) // slot from welcome.player
             .putShort(s.dx.coerceIn(-32768, 32767).toShort())
             .putShort(s.dy.coerceIn(-32768, 32767).toShort())
             .put(s.wheel.coerceIn(-128, 127).toByte())

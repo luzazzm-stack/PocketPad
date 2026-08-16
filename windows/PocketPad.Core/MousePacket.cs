@@ -20,7 +20,8 @@ public readonly record struct MousePacket(
     MouseButtons Buttons,
     short Dx,
     short Dy,
-    sbyte Wheel)
+    sbyte Wheel,
+    byte Player = 0)
 {
     public const byte Magic = 0x4D; // 'M'
     public const byte Version = 0x01;
@@ -35,7 +36,7 @@ public readonly record struct MousePacket(
         dest[1] = Version;
         BinaryPrimitives.WriteUInt16LittleEndian(dest[2..], Seq);
         dest[4] = (byte)Buttons;
-        dest[5] = 0;
+        dest[5] = Player;
         BinaryPrimitives.WriteInt16LittleEndian(dest[6..], Dx);
         BinaryPrimitives.WriteInt16LittleEndian(dest[8..], Dy);
         dest[10] = (byte)Wheel;
@@ -47,13 +48,16 @@ public readonly record struct MousePacket(
         packet = default;
         if (src.Length != Size || src[0] != Magic || src[1] != Version)
             return false;
+        if (src[5] >= StatePacket.MaxPlayers)
+            return false;
 
         packet = new MousePacket(
             Seq: BinaryPrimitives.ReadUInt16LittleEndian(src[2..]),
             Buttons: (MouseButtons)(src[4] & 0b111),
             Dx: BinaryPrimitives.ReadInt16LittleEndian(src[6..]),
             Dy: BinaryPrimitives.ReadInt16LittleEndian(src[8..]),
-            Wheel: (sbyte)src[10]);
+            Wheel: (sbyte)src[10],
+            Player: src[5]);
         return true;
     }
 }

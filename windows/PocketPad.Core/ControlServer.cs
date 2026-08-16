@@ -9,7 +9,8 @@ namespace PocketPad.Core;
 /// <summary>
 /// TCP control channel (default port 46822). JSON lines per PROTOCOL.md v1:
 /// hello/welcome/reject handshake, ping/pong for the latency meter, bye.
-/// One client at a time; a second connection is rejected until the first leaves.
+/// Up to <see cref="StatePacket.MaxPlayers"/> phones at once, each assigned the
+/// lowest free player slot in its welcome; a fifth is rejected with "busy".
 /// </summary>
 public sealed class ControlServer : IDisposable
 {
@@ -23,18 +24,17 @@ public sealed class ControlServer : IDisposable
 
     private readonly TcpListener _listener;
     private readonly string _token;
-    private int _hasClient; // 0/1, interlocked
+    private readonly TcpClient?[] _slots = new TcpClient?[StatePacket.MaxPlayers];
+    private readonly object _slotLock = new();
 
-    /// <summary>Fired when a phone completes the handshake. Arg: device name.</summary>
-    public event Action<string, IPEndPoint>? ClientConnected;
+    /// <summary>Phone completed the handshake: (player, device name, remote).</summary>
+    public event Action<int, string, IPEndPoint>? ClientConnected;
 
-    /// <summary>Fired when the connected phone disconnects (bye, EOF, or error).</summary>
-    public event Action? ClientDisconnected;
+    /// <summary>A phone left (bye, EOF, or error): (player).</summary>
+    public event Action<int>? ClientDisconnected;
 
-    /// <summary>Fired when the phone reports its measured round-trip in ms.</summary>
-    public event Action<int>? LatencyReported;
-
-    private TcpClient? _current;
+    /// <summary>A phone reported its measured round-trip: (player, ms).</summary>
+    public event Action<int, int>? LatencyReported;
 
     public ControlServer(string token, int port = DefaultPort)
     {
@@ -75,7 +75,7 @@ public sealed class ControlServer : IDisposable
         var stream = client.GetStream();
         using var reader = new StreamReader(stream, Encoding.UTF8, false, 1024, leaveOpen: true);
 
-        bool claimed = false;
+        int player = -1;
         try
         {
             // ---- handshake ----
@@ -93,17 +93,21 @@ public sealed class ControlServer : IDisposable
                 await SendAsync(stream, new Msg { T = "reject", Reason = "token" }, ct).ConfigureAwait(false);
                 return;
             }
-            if (Interlocked.CompareExchange(ref _hasClient, 1, 0) != 0)
+            lock (_slotLock)
+            {
+                for (int i = 0; i < _slots.Length; i++)
+                    if (_slots[i] is null) { player = i; _slots[i] = client; break; }
+            }
+            if (player < 0)
             {
                 await SendAsync(stream, new Msg { T = "reject", Reason = "busy" }, ct).ConfigureAwait(false);
                 return;
             }
-            claimed = true;
-            _current = client;
 
-            await SendAsync(stream, new Msg { T = "welcome", V = ProtocolVersion, Udp = UdpStateListener.DefaultPort }, ct)
+            await SendAsync(stream,
+                new Msg { T = "welcome", V = ProtocolVersion, Udp = UdpStateListener.DefaultPort, Player = player }, ct)
                 .ConfigureAwait(false);
-            ClientConnected?.Invoke(hello.Name ?? "phone", remote);
+            ClientConnected?.Invoke(player, hello.Name ?? "phone", remote);
 
             // ---- session loop: answer pings until bye/EOF ----
             while (!ct.IsCancellationRequested)
@@ -114,7 +118,7 @@ public sealed class ControlServer : IDisposable
                 if (msg.T == "ping")
                     await SendAsync(stream, new Msg { T = "pong", Id = msg.Id, Ts = msg.Ts }, ct).ConfigureAwait(false);
                 else if (msg.T == "lat" && msg.Ms is int ms)
-                    LatencyReported?.Invoke(ms);
+                    LatencyReported?.Invoke(player, ms);
             }
         }
         catch (Exception) when (!ct.IsCancellationRequested)
@@ -123,20 +127,25 @@ public sealed class ControlServer : IDisposable
         }
         finally
         {
-            if (claimed)
+            if (player >= 0)
             {
-                _current = null;
-                Interlocked.Exchange(ref _hasClient, 0);
-                ClientDisconnected?.Invoke();
+                lock (_slotLock) { _slots[player] = null; }
+                ClientDisconnected?.Invoke(player);
             }
         }
     }
 
-    /// <summary>Force-drop the connected phone (the UI's Disconnect button).</summary>
-    public void DisconnectClient()
+    /// <summary>Force-drop every connected phone (the UI's Disconnect button).</summary>
+    public void DisconnectAll()
     {
-        try { _current?.Close(); }
-        catch (ObjectDisposedException) { /* already gone */ }
+        lock (_slotLock)
+        {
+            foreach (var c in _slots)
+            {
+                try { c?.Close(); }
+                catch (ObjectDisposedException) { /* already gone */ }
+            }
+        }
     }
 
     private static async Task<Msg?> ReadMsgAsync(StreamReader reader, CancellationToken ct)
@@ -173,5 +182,6 @@ public sealed class ControlServer : IDisposable
         [JsonPropertyName("id")] public long? Id { get; set; }
         [JsonPropertyName("ts")] public long? Ts { get; set; }
         [JsonPropertyName("ms")] public int? Ms { get; set; }
+        [JsonPropertyName("player")] public int? Player { get; set; }
     }
 }

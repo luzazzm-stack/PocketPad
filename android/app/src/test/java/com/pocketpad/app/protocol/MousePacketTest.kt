@@ -13,6 +13,7 @@ class MousePacketTest {
         val bytes = MousePacket.encode(
             seq = 0x0201,
             s = MouseState(buttons = MouseButtons.RIGHT, dx = -2, dy = 0x1122, wheel = -1),
+            player = 3,
         )
 
         assertArrayEquals(
@@ -20,7 +21,7 @@ class MousePacketTest {
                 0x4D, 0x01,                    // magic 'M', version 1
                 0x01, 0x02,                    // seq LE
                 0x02,                          // buttons: Right
-                0x00,                          // reserved
+                0x03,                          // player 3
                 0xFE.toByte(), 0xFF.toByte(),  // dx = -2 LE
                 0x22, 0x11,                    // dy LE
                 0xFF.toByte(),                 // wheel = -1

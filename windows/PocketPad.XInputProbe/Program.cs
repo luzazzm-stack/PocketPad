@@ -1,12 +1,13 @@
 using System.Runtime.InteropServices;
 
-// Dev utility: polls XInput pad 0 the same way a game does and prints any
+// Dev utility: polls an XInput slot the same way a game does and prints any
 // state change. Proves the whole chain phone -> Link -> ViGEm -> XInput.
-// Usage: PocketPad.XInputProbe [seconds]
+// Usage: PocketPad.XInputProbe [slot] [seconds]
 
-int seconds = args.Length > 0 && int.TryParse(args[0], out var s) ? s : 10;
+uint slot = args.Length > 0 && uint.TryParse(args[0], out var sl) ? sl : 0;
+int seconds = args.Length > 1 && int.TryParse(args[1], out var s) ? s : 10;
 
-Console.WriteLine($"Polling XInput slot 0 for {seconds}s — press buttons on the phone.");
+Console.WriteLine($"Polling XInput slot {slot} for {seconds}s — press buttons on the phone.");
 
 var deadline = DateTime.UtcNow.AddSeconds(seconds);
 XInputState last = default;
@@ -15,9 +16,9 @@ int changes = 0;
 
 while (DateTime.UtcNow < deadline)
 {
-    if (XInputGetState(0, out var state) != 0)
+    if (XInputGetState(slot, out var state) != 0)
     {
-        Console.WriteLine("No controller in slot 0.");
+        Console.WriteLine($"No controller in slot {slot}.");
         return 2;
     }
 
