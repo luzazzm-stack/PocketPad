@@ -18,7 +18,12 @@ OutputBaseFilename=PocketPad-Setup
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+; as close to one-click as it gets: no directory page, no "ready?" page —
+; run it, click Install, done
 DisableProgramGroupPage=yes
+DisableDirPage=yes
+DisableReadyPage=yes
+DisableWelcomePage=no
 ; driver + firewall need admin
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64compatible
