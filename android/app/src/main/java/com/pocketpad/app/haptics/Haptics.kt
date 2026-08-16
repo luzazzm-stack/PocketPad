@@ -40,10 +40,14 @@ class Haptics(context: Context) {
     // and amplitude grows too on motors that support it.
     private val effects: Array<VibrationEffect>? =
         if (vibrator == null || !vibrator.hasVibrator()) null
+        // Levels are percentages of max: Strong 100%, Medium 75%, Light ~37%.
+        // Applied to BOTH duration and amplitude, because many motors (the
+        // realme test device included) ignore amplitude — there, duration
+        // alone carries the percentage.
         else arrayOf(
-            VibrationEffect.createOneShot(9, 84),    // light  — a whisper
-            VibrationEffect.createOneShot(24, 180),  // medium — a clear tap
-            VibrationEffect.createOneShot(48, 255),  // strong — a thump
+            VibrationEffect.createOneShot(56, 97),    // light  — ~37% of max
+            VibrationEffect.createOneShot(112, 191),  // medium — 75% of max
+            VibrationEffect.createOneShot(150, 255),  // strong — maxed out
         )
 
     /** One short tick — a button registered. */
