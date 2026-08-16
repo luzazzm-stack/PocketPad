@@ -33,9 +33,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.pocketpad.app.haptics.LocalHaptics
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -151,7 +150,7 @@ fun DpadCross(
     modifier: Modifier = Modifier,
     interactive: Boolean = true,
 ) {
-    val hf = LocalHapticFeedback.current
+    val hf = LocalHaptics.current
 
     Box(
         modifier
@@ -178,7 +177,7 @@ fun DpadCross(
                             if (d != last) {
                                 last = d
                                 if (haptics && d != Dpad.NEUTRAL)
-                                    hf.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    hf.tick()
                                 onDirection(d)
                             }
                         }
@@ -286,7 +285,7 @@ private fun FaceButton(
     onChange: (Boolean) -> Unit,
 ) {
     var pressed by remember { mutableStateOf(false) }
-    val hf = LocalHapticFeedback.current
+    val hf = LocalHaptics.current
 
     Box(
         modifier
@@ -300,7 +299,7 @@ private fun FaceButton(
                     awaitEachGesture {
                         awaitFirstDown()
                         pressed = true
-                        if (haptics) hf.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (haptics) hf.tick()
                         onChange(true)
                         waitForUpOrCancellation()
                         pressed = false
@@ -340,7 +339,7 @@ private fun DepthButton(
     onChange: (Boolean) -> Unit,
 ) {
     var pressed by remember { mutableStateOf(false) }
-    val hf = LocalHapticFeedback.current
+    val hf = LocalHaptics.current
 
     Box(
         modifier
@@ -355,7 +354,7 @@ private fun DepthButton(
                 awaitEachGesture {
                     awaitFirstDown()
                     pressed = true
-                    if (haptics) hf.performHapticFeedback(HapticFeedbackType.LongPress)
+                    if (haptics) hf.tick()
                     onChange(true)
                     waitForUpOrCancellation()
                     pressed = false

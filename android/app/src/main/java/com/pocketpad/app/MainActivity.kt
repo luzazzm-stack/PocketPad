@@ -47,8 +47,11 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.runtime.CompositionLocalProvider
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import com.pocketpad.app.haptics.Haptics
+import com.pocketpad.app.haptics.LocalHaptics
 import com.pocketpad.app.settings.AppSettings
 import com.pocketpad.app.settings.SettingsStore
 import com.pocketpad.app.transport.PadConnection
@@ -102,6 +105,8 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         setContent {
+            val haptics = remember { Haptics(this@MainActivity) }
+            CompositionLocalProvider(LocalHaptics provides haptics) {
             MaterialTheme(colorScheme = PadColors) {
                 val view = LocalView.current
                 WindowCompat.getInsetsController(window, view).apply {
@@ -200,6 +205,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+            }
             }
         }
     }

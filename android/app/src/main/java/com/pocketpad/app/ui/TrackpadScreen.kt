@@ -28,9 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.pocketpad.app.haptics.LocalHaptics
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,7 +55,7 @@ fun TrackpadScreen(
     onSwitchToPad: () -> Unit,
 ) {
     val sensitivity = settings.mouseSensitivity
-    val haptics = LocalHapticFeedback.current
+    val haptics = LocalHaptics.current
 
     Column(
         Modifier
@@ -110,7 +109,7 @@ fun TrackpadScreen(
                     }
                     .pointerInput(Unit) {
                         detectTapGestures {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            haptics.tick()
                             connection.setMouseButton(MouseButtons.LEFT, true)
                             connection.setMouseButton(MouseButtons.LEFT, false)
                         }
@@ -179,7 +178,7 @@ private fun ClickButton(
     connection: PadConnection,
 ) {
     var pressed by remember { mutableStateOf(false) }
-    val haptics = LocalHapticFeedback.current
+    val haptics = LocalHaptics.current
 
     Box(
         modifier
@@ -190,7 +189,7 @@ private fun ClickButton(
                 awaitEachGesture {
                     awaitFirstDown()
                     pressed = true
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    haptics.tick()
                     connection.setMouseButton(bit, true)
                     waitForUpOrCancellation()
                     pressed = false
