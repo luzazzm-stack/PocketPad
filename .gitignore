@@ -24,3 +24,6 @@ installer/redist/
 # OS
 Thumbs.db
 Desktop.ini
+
+# retired dev deployment (superseded by the installer)
+PocketPad-PC/
