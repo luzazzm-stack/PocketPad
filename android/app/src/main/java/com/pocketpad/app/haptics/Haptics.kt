@@ -48,24 +48,27 @@ class Haptics(context: Context) {
         // carries the strength.
         val durationMs = 10L + (140L * p) / 100L
         val amplitude = ((255 * p) / 100).coerceIn(1, 255)
-        val fx = VibrationEffect.createOneShot(durationMs, amplitude)
+        val gameAttrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_GAME)
+            .build()
         when {
             // Plain vibrate() gets USAGE_TOUCH attributes, and OEMs scale touch
             // vibration by the system "touch feedback" intensity — observed at
             // 0.00 on realme/ColorOS, i.e. silenced. Tag as game/media instead,
             // like every mobile game with rumble does.
             Build.VERSION.SDK_INT >= 33 -> v.vibrate(
-                fx,
+                VibrationEffect.createOneShot(durationMs, amplitude),
                 VibrationAttributes.Builder()
                     .setUsage(VibrationAttributes.USAGE_MEDIA)
                     .build(),
             )
-            else -> @Suppress("DEPRECATION") v.vibrate(
-                fx,
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_GAME)
-                    .build(),
+            Build.VERSION.SDK_INT >= 26 -> @Suppress("DEPRECATION") v.vibrate(
+                VibrationEffect.createOneShot(durationMs, amplitude),
+                gameAttrs,
             )
+            // Android 6/7: no VibrationEffect — duration-only vibrate carries
+            // the percentage on its own.
+            else -> @Suppress("DEPRECATION") v.vibrate(durationMs, gameAttrs)
         }
     }
 }

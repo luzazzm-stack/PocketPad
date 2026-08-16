@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.pocketpad.app"
-        minSdk = 26
+        minSdk = 23 // Android 6.0
         targetSdk = 35
         versionCode = 1
         versionName = "0.1"
@@ -25,6 +25,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Backports java.util APIs (AtomicReference.getAndUpdate etc.) to Android 6/7.
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "17"
@@ -52,6 +54,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0") // QR pairing scanner
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
     testImplementation("junit:junit:4.13.2")
 }

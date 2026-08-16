@@ -340,19 +340,21 @@ private fun ConnectScreen(
                     modifier = Modifier.weight(1f).height(46.dp),
                 ) { Text("Connect", fontWeight = FontWeight.Bold) }
 
-                OutlinedButton(
-                    onClick = {
-                        scanner.launch(ScanOptions().apply {
-                            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                            setPrompt("Point at the QR code on your PC screen")
-                            setBeepEnabled(false)
-                            setOrientationLocked(false)
-                        })
-                    },
-                    shape = RoundedCornerShape(11.dp),
-                    modifier = Modifier.size(46.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                ) { QrIcon(size = 22.dp, color = Color(0xFF98A2C0)) }
+                if (Build.VERSION.SDK_INT >= 24) { // scanner library needs Android 7+
+                    OutlinedButton(
+                        onClick = {
+                            scanner.launch(ScanOptions().apply {
+                                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                setPrompt("Point at the QR code on your PC screen")
+                                setBeepEnabled(false)
+                                setOrientationLocked(false)
+                            })
+                        },
+                        shape = RoundedCornerShape(11.dp),
+                        modifier = Modifier.size(46.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                    ) { QrIcon(size = 22.dp, color = Color(0xFF98A2C0)) }
+                }
             }
             Text(
                 if (lastHost.isNotBlank()) "remembered your last PC — just tap Connect"

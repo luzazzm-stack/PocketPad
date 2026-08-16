@@ -6,6 +6,7 @@
 
 Your phone becomes the gamepad. Your PC sees a real Xbox controller. Every game just works.
 **Up to 4 phones connect at once** — each gets its own controller, so two phones = instant local versus.
+Works on **Android 6.0 and newer** (QR scanning needs 7.0+; older phones type the code).
 
 </div>
 
