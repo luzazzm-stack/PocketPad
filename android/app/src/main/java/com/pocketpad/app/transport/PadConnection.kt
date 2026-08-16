@@ -1,0 +1,135 @@
+package com.pocketpad.app.transport
+
+import com.pocketpad.app.protocol.PadState
+import com.pocketpad.app.protocol.StatePacket
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.BufferedWriter
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.util.concurrent.atomic.AtomicReference
+
+/**
+ * Wi-Fi / hotspot transport (PROTOCOL.md v1):
+ * TCP handshake + ping on [tcpPort], then 16-byte UDP state packets at 125 Hz.
+ *
+ * USB reuses this class unchanged — `adb reverse` makes host "127.0.0.1".
+ */
+class PadConnection(
+    private val host: String,
+    private val token: String,
+    private val deviceName: String,
+    private val tcpPort: Int = 46822,
+) {
+    sealed interface Event {
+        data object Connected : Event
+        data class Rejected(val reason: String) : Event
+        data class Latency(val rttMs: Long) : Event
+        data class Disconnected(val error: String?) : Event
+    }
+
+    /** UI writes the latest full state here; the sender loop reads it. */
+    val state = AtomicReference(PadState())
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var job: Job? = null
+
+    /** Connect and run until [close] or failure. Events land on [onEvent] (IO thread). */
+    fun start(onEvent: (Event) -> Unit) {
+        job = scope.launch {
+            var socket: Socket? = null
+            var udp: DatagramSocket? = null
+            try {
+                // ---- TCP handshake ----
+                val s = Socket().also { socket = it }
+                s.tcpNoDelay = true
+                s.connect(InetSocketAddress(host, tcpPort), 4000)
+                val reader = s.getInputStream().bufferedReader(Charsets.UTF_8)
+                val writer = s.getOutputStream().bufferedWriter(Charsets.UTF_8)
+
+                writer.sendJson {
+                    put("t", "hello"); put("v", 1)
+                    put("name", deviceName); put("token", token)
+                }
+                val reply = JSONObject(reader.readLine() ?: throw java.io.IOException("closed"))
+                if (reply.getString("t") != "welcome") {
+                    onEvent(Event.Rejected(reply.optString("reason", "unknown")))
+                    return@launch
+                }
+                val udpPort = reply.optInt("udp", 46821)
+                onEvent(Event.Connected)
+
+                // ---- UDP sender: 125 Hz ----
+                val ds = DatagramSocket().also { udp = it }
+                val addr = InetAddress.getByName(host)
+                val buf = ByteArray(StatePacket.SIZE)
+                val senderJob = launch {
+                    var seq = 0
+                    while (isActive) {
+                        StatePacket.encode(seq, state.get(), buf)
+                        ds.send(DatagramPacket(buf, buf.size, addr, udpPort))
+                        seq = (seq + 1) and 0xFFFF
+                        delay(8) // 125 Hz
+                    }
+                }
+
+                // ---- ping loop (1 s) + pong reader for the latency meter ----
+                val pingJob = launch {
+                    var id = 0L
+                    while (isActive) {
+                        writer.sendJson {
+                            put("t", "ping"); put("id", id)
+                            put("ts", System.nanoTime() / 1_000_000)
+                        }
+                        id++
+                        delay(1000)
+                    }
+                }
+                try {
+                    while (isActive) {
+                        val line = reader.readLine() ?: break
+                        val msg = JSONObject(line)
+                        when (msg.optString("t")) {
+                            "pong" -> onEvent(
+                                Event.Latency(System.nanoTime() / 1_000_000 - msg.getLong("ts"))
+                            )
+                            "bye" -> break
+                        }
+                    }
+                } finally {
+                    senderJob.cancelAndJoin()
+                    pingJob.cancelAndJoin()
+                }
+                onEvent(Event.Disconnected(null))
+            } catch (e: Exception) {
+                if (isActive) onEvent(Event.Disconnected(e.message ?: e.javaClass.simpleName))
+            } finally {
+                udp?.close()
+                socket?.close()
+            }
+        }
+    }
+
+    suspend fun close() {
+        job?.cancelAndJoin()
+        withContext(Dispatchers.IO) { /* sockets closed in finally */ }
+    }
+
+    private fun BufferedWriter.sendJson(build: JSONObject.() -> Unit) {
+        write(JSONObject().apply(build).toString())
+        write("\n")
+        flush()
+    }
+}

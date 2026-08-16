@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PocketPad.Core", "PocketPad.Core\PocketPad.Core.csproj", "{03458F9E-77C0-40EF-AD31-3493F94D2493}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PocketPad.Cli", "PocketPad.Cli\PocketPad.Cli.csproj", "{CD63EEFB-1B52-4E19-82D1-95690484979C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PocketPad.Core.Tests", "PocketPad.Core.Tests\PocketPad.Core.Tests.csproj", "{1654EC6C-5C7C-4E22-863D-2EC4F68E5873}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{03458F9E-77C0-40EF-AD31-3493F94D2493}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{03458F9E-77C0-40EF-AD31-3493F94D2493}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{03458F9E-77C0-40EF-AD31-3493F94D2493}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{03458F9E-77C0-40EF-AD31-3493F94D2493}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CD63EEFB-1B52-4E19-82D1-95690484979C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD63EEFB-1B52-4E19-82D1-95690484979C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD63EEFB-1B52-4E19-82D1-95690484979C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CD63EEFB-1B52-4E19-82D1-95690484979C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1654EC6C-5C7C-4E22-863D-2EC4F68E5873}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1654EC6C-5C7C-4E22-863D-2EC4F68E5873}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1654EC6C-5C7C-4E22-863D-2EC4F68E5873}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1654EC6C-5C7C-4E22-863D-2EC4F68E5873}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
