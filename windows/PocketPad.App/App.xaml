@@ -1,0 +1,106 @@
+<Application x:Class="PocketPad.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+
+        <!-- ============ PocketPad design tokens (design.html) ============ -->
+        <SolidColorBrush x:Key="Ground"      Color="#16161E"/>
+        <SolidColorBrush x:Key="Panel"       Color="#191B25"/>
+        <SolidColorBrush x:Key="PanelSoft"   Color="#1B1E2A"/>
+        <SolidColorBrush x:Key="ChromeBar"   Color="#1B1D26"/>
+        <SolidColorBrush x:Key="Rule"        Color="#262938"/>
+        <SolidColorBrush x:Key="RuleSoft"    Color="#31354A"/>
+        <SolidColorBrush x:Key="Ink"         Color="#C6CEE8"/>
+        <SolidColorBrush x:Key="InkSoft"     Color="#98A2C0"/>
+        <SolidColorBrush x:Key="InkFaint"    Color="#6B7392"/>
+        <SolidColorBrush x:Key="Accent"      Color="#7AA2F7"/>
+        <SolidColorBrush x:Key="Good"        Color="#9ECE6A"/>
+        <SolidColorBrush x:Key="GoodDim"     Color="#1F2D18"/>
+        <SolidColorBrush x:Key="Bad"         Color="#F7768E"/>
+        <SolidColorBrush x:Key="AddrColor"   Color="#E0AF68"/>
+        <SolidColorBrush x:Key="CodeColor"   Color="#F787B7"/>
+
+        <FontFamily x:Key="Mono">Cascadia Mono, Consolas</FontFamily>
+
+        <!-- small uppercase field label -->
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource Mono}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{StaticResource InkFaint}"/>
+            <Setter Property="Typography.Capitals" Value="AllSmallCaps"/>
+        </Style>
+
+        <!-- borderless icon-ish button (copy, title bar) -->
+        <Style x:Key="GhostButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource InkFaint}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource RuleSoft}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontFamily" Value="{StaticResource Mono}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Padding" Value="9,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#232634"/>
+                                <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- title-bar caption buttons -->
+        <Style x:Key="CaptionButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <!-- red-outline destructive button -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+            <Setter Property="Foreground" Value="{StaticResource Bad}"/>
+            <Setter Property="BorderBrush" Value="#7A3A46"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Padding" Value="14,7"/>
+        </Style>
+
+        <!-- filled accent button -->
+        <Style x:Key="AccentButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource Accent}"/>
+            <Setter Property="Foreground" Value="#14151D"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#95BCFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </Application.Resources>
+</Application>

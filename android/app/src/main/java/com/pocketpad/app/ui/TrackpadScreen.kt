@@ -35,11 +35,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pocketpad.app.protocol.MouseButtons
+import com.pocketpad.app.settings.AppSettings
 import com.pocketpad.app.transport.PadConnection
 import kotlin.math.abs
 import kotlin.math.roundToInt
-
-private const val SENSITIVITY = 1.5f
 
 /** Pixels of vertical travel per wheel notch on the scroll strip. */
 private const val SCROLL_STEP = 28f
@@ -50,7 +49,13 @@ private const val SCROLL_STEP = 28f
  * game, closing a dialog — where a gamepad can't help.
  */
 @Composable
-fun TrackpadScreen(connection: PadConnection, latencyMs: Long?, onSwitchToPad: () -> Unit) {
+fun TrackpadScreen(
+    connection: PadConnection,
+    latencyMs: Long?,
+    settings: AppSettings,
+    onSwitchToPad: () -> Unit,
+) {
+    val sensitivity = settings.mouseSensitivity
     val haptics = LocalHapticFeedback.current
 
     Column(
@@ -98,8 +103,8 @@ fun TrackpadScreen(connection: PadConnection, latencyMs: Long?, onSwitchToPad: (
                         detectDragGestures { change, drag ->
                             change.consume()
                             connection.moveMouse(
-                                (drag.x * SENSITIVITY).roundToInt(),
-                                (drag.y * SENSITIVITY).roundToInt(),
+                                (drag.x * sensitivity).roundToInt(),
+                                (drag.y * sensitivity).roundToInt(),
                             )
                         }
                     }

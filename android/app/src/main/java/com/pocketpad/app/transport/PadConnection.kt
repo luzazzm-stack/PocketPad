@@ -91,6 +91,7 @@ class PadConnection(
                 s.connect(InetSocketAddress(host, tcpPort), 4000)
                 val reader = s.getInputStream().bufferedReader(Charsets.UTF_8)
                 val writer = s.getOutputStream().bufferedWriter(Charsets.UTF_8)
+                val writeLock = Any() // ping loop + pong handler both write
 
                 writer.sendJson {
                     put("t", "hello"); put("v", 1)
@@ -146,9 +147,11 @@ class PadConnection(
                 val pingJob = launch {
                     var id = 0L
                     while (isActive) {
-                        writer.sendJson {
-                            put("t", "ping"); put("id", id)
-                            put("ts", System.nanoTime() / 1_000_000)
+                        synchronized(writeLock) {
+                            writer.sendJson {
+                                put("t", "ping"); put("id", id)
+                                put("ts", System.nanoTime() / 1_000_000)
+                            }
                         }
                         id++
                         delay(1000)
@@ -159,9 +162,14 @@ class PadConnection(
                         val line = reader.readLine() ?: break
                         val msg = JSONObject(line)
                         when (msg.optString("t")) {
-                            "pong" -> onEvent(
-                                Event.Latency(System.nanoTime() / 1_000_000 - msg.getLong("ts"))
-                            )
+                            "pong" -> {
+                                val rtt = System.nanoTime() / 1_000_000 - msg.getLong("ts")
+                                onEvent(Event.Latency(rtt))
+                                // Report it back so the PC app can show the same number.
+                                synchronized(writeLock) {
+                                    writer.sendJson { put("t", "lat"); put("ms", rtt) }
+                                }
+                            }
                             "bye" -> break
                         }
                     }

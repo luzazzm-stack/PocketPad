@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ApplicationIcon>pocketpad.ico</ApplicationIcon>
+    <AssemblyTitle>PocketPad for PC</AssemblyTitle>
+    <Product>PocketPad</Product>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PocketPad.Core\PocketPad.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="pocketpad.ico" />
+  </ItemGroup>
+
+</Project>

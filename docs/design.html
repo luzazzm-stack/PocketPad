@@ -1,0 +1,479 @@
+<title>PocketPad Design</title>
+<style>
+  :root{
+    --ink:#1A1C26; --ink-soft:#4B5168; --ink-faint:#767D96;
+    --ground:#F4F6FB; --surface:#FFFFFF; --rule:#D3DAEA;
+    --accent:#3A64C8; --accent-dim:#E4EAFA;
+    --shadow:0 1px 2px rgba(26,28,38,.06),0 10px 28px rgba(26,28,38,.09);
+    --mono:"Cascadia Mono",Consolas,ui-monospace,monospace;
+    --sans:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#C6CEE8; --ink-soft:#98A2C0; --ink-faint:#6B7392;
+      --ground:#131419; --surface:#1B1D26; --rule:#31354A;
+      --accent:#7AA2F7; --accent-dim:#232A3E;
+      --shadow:0 1px 2px rgba(0,0,0,.35),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#C6CEE8; --ink-soft:#98A2C0; --ink-faint:#6B7392;
+    --ground:#131419; --surface:#1B1D26; --rule:#31354A;
+    --accent:#7AA2F7; --accent-dim:#232A3E;
+    --shadow:0 1px 2px rgba(0,0,0,.35),0 10px 30px rgba(0,0,0,.35);
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+       font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:0 22px 100px}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+  header{padding:58px 0 20px}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;
+           color:var(--accent);margin:0 0 12px}
+  h1{font-family:var(--mono);font-weight:700;font-size:clamp(34px,6vw,52px);
+     letter-spacing:-.02em;line-height:1.04;margin:0 0 14px}
+  .standfirst{font-size:18.5px;color:var(--ink-soft);max-width:60ch;margin:0}
+
+  section{margin-top:70px}
+  h2{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;
+     color:var(--accent);margin:0 0 8px}
+  .stitle{font-family:var(--mono);font-size:clamp(23px,4vw,30px);font-weight:700;
+          letter-spacing:-.015em;margin:0 0 10px}
+  .lede{color:var(--ink-soft);max-width:62ch;margin:0 0 26px}
+
+  /* ---- language strip ---- */
+  .lang{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .swatch{background:var(--surface);border:1px solid var(--rule);border-radius:11px;
+          padding:12px 14px;box-shadow:var(--shadow)}
+  .chip{height:44px;border-radius:8px;margin-bottom:9px}
+  .swatch b{font-family:var(--mono);font-size:12.5px;display:block}
+  .swatch span{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+
+  /* ---- mock frame captions ---- */
+  .mock{margin:26px 0 0}
+  .mock-cap{display:flex;align-items:baseline;gap:10px;margin:0 0 12px}
+  .mock-cap .tag{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.14em;
+                 border-radius:999px;padding:4px 11px;text-transform:uppercase}
+  .t-pc{background:var(--accent-dim);color:var(--accent)}
+  .t-ph{background:#E7F0DD;color:#4E7C2F}
+  :root[data-theme="dark"] .t-ph{background:#232E1E;color:#9ECE6A}
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .t-ph{background:#232E1E;color:#9ECE6A}
+  }
+  .mock-cap h4{margin:0;font-size:17px}
+  .mock-note{font-size:14.5px;color:var(--ink-faint);margin:10px 0 0;max-width:64ch}
+  .mock-note b{color:var(--ink-soft)}
+  .scrollme{overflow-x:auto;padding-bottom:6px}
+
+  /* ============================================================
+     DESKTOP WINDOW MOCKUP — dark app chrome, fixed 700px design
+     ============================================================ */
+  .win{width:700px;background:#16161E;border-radius:12px;border:1px solid #2C2F40;
+       box-shadow:var(--shadow);overflow:hidden;font-family:var(--sans);color:#C6CEE8}
+  .win-bar{display:flex;align-items:center;gap:9px;padding:10px 14px;background:#1B1D26;
+           border-bottom:1px solid #262938}
+  .win-bar .appic{width:18px;height:18px;border-radius:4px;flex-shrink:0}
+  .win-bar b{font-size:12.5px;font-weight:600;color:#98A2C0;margin-right:auto}
+  .win-bar i{width:34px;height:22px;border-radius:5px;background:transparent;position:relative}
+  .win-bar i::after{content:"";position:absolute;inset:8px 13px;background:#565F89;height:1.5px}
+  .win-bar i.mx::after{inset:6px 12px;background:transparent;border:1.5px solid #565F89;height:8px}
+  .win-bar i.cl::after{content:"✕";inset:0;background:none;height:auto;color:#565F89;
+                       font-size:11px;display:grid;place-items:center;font-style:normal}
+
+  .win-body{display:grid;grid-template-columns:1fr 250px;gap:0;min-height:330px}
+  .win-left{padding:28px 30px}
+  .win-right{border-left:1px solid #262938;background:#191B25;display:flex;flex-direction:column;
+             align-items:center;justify-content:center;gap:12px;padding:24px}
+
+  .status-line{display:flex;align-items:center;gap:9px;font-size:13px;color:#98A2C0;
+               margin-bottom:22px}
+  .pulse{width:9px;height:9px;border-radius:50%;background:#E0AF68;
+         box-shadow:0 0 0 4px rgba(224,175,104,.15)}
+  .pulse.ok{background:#9ECE6A;box-shadow:0 0 0 4px rgba(158,206,106,.15)}
+
+  .kv{margin:0 0 18px}
+  .kv label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;
+            text-transform:uppercase;color:#6B7392;margin-bottom:5px}
+  .kv .val{display:flex;align-items:center;gap:10px}
+  .kv .num{font-family:var(--mono);font-size:31px;font-weight:700;letter-spacing:.01em}
+  .num.addr{color:#E0AF68} .num.code{color:#F787B7}
+  .copybtn{font-family:var(--mono);font-size:10.5px;color:#6B7392;border:1px solid #31354A;
+           border-radius:6px;padding:4px 9px}
+
+  .win-steps{margin:24px 0 0;padding:14px 16px;background:#1B1E2A;border-radius:10px;
+             font-size:13px;color:#98A2C0;line-height:1.85}
+  .win-steps b{color:#C6CEE8}
+
+  .qr{width:170px;height:170px;border-radius:12px;background:#fff;padding:12px;position:relative}
+  .qr svg{width:100%;height:100%}
+  .qr-cap{font-size:12px;color:#6B7392;text-align:center;line-height:1.5}
+  .qr-cap b{color:#98A2C0}
+
+  /* connected variant */
+  .conn-head{display:flex;align-items:center;gap:12px;background:rgba(158,206,106,.1);
+             border:1px solid rgba(158,206,106,.4);border-radius:11px;padding:13px 16px;
+             margin-bottom:22px}
+  .conn-head .ok{width:34px;height:34px;border-radius:9px;background:#9ECE6A;color:#16161E;
+                 display:grid;place-items:center;font-weight:800;font-size:16px}
+  .conn-head b{font-size:15px;color:#C6CEE8;display:block}
+  .conn-head span{font-size:12px;color:#98A2C0}
+  .bigms{display:flex;align-items:baseline;gap:8px;margin:4px 0 2px}
+  .bigms .n{font-family:var(--mono);font-size:56px;font-weight:700;color:#9ECE6A;line-height:1}
+  .bigms .u{font-family:var(--mono);font-size:16px;color:#6B7392}
+  .spark{margin-top:8px}
+  .statrow{display:flex;gap:26px;margin-top:20px;font-size:12.5px;color:#6B7392}
+  .statrow b{display:block;font-family:var(--mono);font-size:16px;color:#98A2C0;font-weight:700}
+  .dc{margin-top:24px;display:inline-block;font-size:13px;color:#F7768E;
+      border:1px solid rgba(247,118,142,.45);border-radius:8px;padding:8px 16px}
+
+  /* ============================================================
+     PHONE MOCKUPS — landscape 640x290 frame
+     ============================================================ */
+  .phone{width:640px;height:290px;background:#14151D;border-radius:18px;border:1px solid #2C2F40;
+         box-shadow:var(--shadow);position:relative;overflow:hidden;color:#C6CEE8;
+         font-family:var(--sans)}
+  .notch{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:5px;height:56px;
+         border-radius:4px;background:#000}
+
+  /* connect screen */
+  .c-grid{position:absolute;inset:0;display:grid;grid-template-columns:240px 1fr;gap:0}
+  .c-left{display:flex;flex-direction:column;justify-content:center;gap:9px;padding:0 6px 0 34px}
+  .c-left .logo{display:flex;align-items:center;gap:10px}
+  .c-left .logo svg{width:34px;height:34px;border-radius:8px}
+  .c-left .logo b{font-size:19px;font-weight:700}
+  .c-left p{margin:0;font-size:11.5px;color:#6B7392;line-height:1.7}
+  .c-left p b{color:#98A2C0;font-weight:600}
+  .c-right{display:flex;flex-direction:column;justify-content:center;gap:10px;padding:0 34px}
+  .field{background:#1D1F2B;border:1.5px solid #31354A;border-radius:11px;padding:9px 14px}
+  .field label{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.16em;
+               text-transform:uppercase;color:#6B7392}
+  .field div{font-family:var(--mono);font-size:16px;font-weight:600}
+  .field.f-addr div{color:#E0AF68} .field.f-code div{color:#F787B7}
+  .btnrow{display:flex;gap:9px;align-items:stretch}
+  .cta{flex:1;background:#7AA2F7;color:#14151D;font-weight:700;font-size:14.5px;border-radius:11px;
+       display:grid;place-items:center;padding:11px 0}
+  .qrbtn{width:46px;border:1.5px solid #31354A;border-radius:11px;display:grid;place-items:center}
+  .qrbtn svg{width:20px;height:20px}
+  .remember{font-size:10.5px;color:#4E5470;text-align:center}
+
+  /* gamepad screen */
+  .g-abs{position:absolute}
+  .g-top{position:absolute;top:10px;left:0;right:0;display:flex;justify-content:center;
+         align-items:center;gap:10px}
+  .g-chip{display:flex;align-items:center;gap:6px;background:#232634;border:1px solid #31354A;
+          border-radius:999px;padding:5px 12px;font-size:11px;font-weight:600;color:#98A2C0}
+  .g-ms{font-family:var(--mono);font-size:10.5px;color:#9ECE6A}
+  .shoulder{position:absolute;top:12px;width:76px;height:34px;border-radius:10px;
+            background:linear-gradient(180deg,#262A3A,#1E212E);border:1px solid #31354A;
+            display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:12px;
+            color:#98A2C0;box-shadow:0 2px 4px rgba(0,0,0,.4)}
+  /* unified d-pad cross */
+  .dcross{left:44px;top:78px;width:138px;height:138px}
+  .dcross .cross{position:absolute;inset:0}
+  .darm{position:absolute;background:linear-gradient(180deg,#2A2E3F,#222534);
+        border:1px solid #363B52;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 3px 7px rgba(0,0,0,.45)}
+  .darm.v{left:46px;top:0;width:46px;height:138px;border-radius:12px}
+  .darm.h{left:0;top:46px;width:138px;height:46px;border-radius:12px}
+  .dctr{position:absolute;left:57px;top:57px;width:24px;height:24px;border-radius:50%;
+        background:#191B26;border:1px solid #363B52}
+  .darr{position:absolute;font-size:12px;color:#7C86AC;font-weight:700}
+  .darr.up{left:0;right:0;top:9px;text-align:center}
+  .darr.dn{left:0;right:0;bottom:9px;text-align:center}
+  .darr.lf{left:13px;top:50%;transform:translateY(-50%)}
+  .darr.rt{right:13px;top:50%;transform:translateY(-50%)}
+  /* face buttons with depth; one shown pressed */
+  .face{position:absolute;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;
+        font-weight:800;font-size:16px;color:#14151D;
+        box-shadow:inset 0 -3px 0 rgba(0,0,0,.35),inset 0 2px 0 rgba(255,255,255,.28),
+                   0 4px 9px rgba(0,0,0,.5)}
+  .face.fy{background:linear-gradient(180deg,#EBC183,#D9A053);right:106px;top:64px}
+  .face.fb{background:linear-gradient(180deg,#FA8FA5,#EE607C);right:52px;top:118px}
+  .face.fa{background:linear-gradient(180deg,#B1DD80,#8CBE58);right:106px;top:172px}
+  .face.fx{background:linear-gradient(180deg,#95BCFF,#6E96EC);right:160px;top:118px}
+  .face.pressed{box-shadow:inset 0 3px 6px rgba(0,0,0,.4),0 0 0 5px rgba(122,162,247,.28);
+                transform:translateY(2px)}
+  .pilltab{position:absolute;bottom:14px;width:72px;height:30px;border-radius:999px;
+           background:#232634;border:1px solid #31354A;display:grid;place-items:center;
+           font-family:var(--mono);font-size:10.5px;font-weight:700;color:#98A2C0}
+
+  /* ---- decisions table ---- */
+  .tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--rule);
+             border-radius:12px;box-shadow:var(--shadow);margin-top:24px}
+  table{border-collapse:collapse;width:100%;min-width:520px;font-size:15px}
+  th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--rule);vertical-align:top}
+  thead th{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+           color:var(--ink-faint)}
+  tbody tr:last-child td{border-bottom:none}
+  td.q{font-weight:650;white-space:nowrap}
+
+  footer{margin-top:80px;padding-top:20px;border-top:1px solid var(--rule);
+         font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="mark" viewBox="0 0 108 108">
+    <rect width="108" height="108" rx="24" fill="#1E2130"/>
+    <rect x="30" y="38" width="11.5" height="32" rx="4" fill="#C6CEE8"/>
+    <rect x="20.25" y="47.75" width="31" height="12.5" rx="4" fill="#C6CEE8"/>
+    <circle cx="76" cy="42" r="6.4" fill="#E0AF68"/><circle cx="88" cy="54" r="6.4" fill="#F7768E"/>
+    <circle cx="76" cy="66" r="6.4" fill="#9ECE6A"/><circle cx="64" cy="54" r="6.4" fill="#8FB4FF"/>
+  </symbol>
+  <symbol id="qrmark" viewBox="0 0 84 84">
+    <rect width="84" height="84" fill="#fff"/>
+    <g fill="#14151D">
+      <path d="M6 6h22v22H6zM12 12v10h10V12zM56 6h22v22H56zM62 12v10h10V12zM6 56h22v22H6zM12 62v10h10V62z"/>
+      <path d="M36 6h6v6h-6zM46 6h6v12h-6zM36 18h6v10h-6zM48 22h10v6H48zM6 36h8v6H6zM18 36h10v8H18zM34 34h8v10h-8zM48 36h6v6h-6zM60 34h8v8h-8zM72 36h6v10h-6zM36 50h10v8H36zM52 50h8v6h-8zM64 48h6v10h-6zM36 64h6v8h-6zM48 62h10v8H48zM62 64h8v6h-8zM72 56h6v8h-6zM56 72h8v6h-6z"/>
+    </g>
+  </symbol>
+</defs></svg>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Design Spec · Approve Before Build</p>
+    <h1>PocketPad, designed properly</h1>
+    <p class="standfirst">The black window is dead. This is the plan for a real Windows app
+    and a cleaned-up phone app — every screen mocked up below, exactly as it will be built.
+    Nothing gets coded until you approve this page.</p>
+  </header>
+
+  <!-- ================= DESIGN LANGUAGE ================= -->
+  <section>
+    <h2>Foundation</h2>
+    <p class="stitle">One design language, both apps</p>
+    <p class="lede">Deep-night ground, one blue accent, and the four button colours reserved
+    for what they mean — the same identity as the Control Cross icon you picked.</p>
+    <div class="lang">
+      <div class="swatch"><div class="chip" style="background:#16161E"></div><b>Ground</b><span>#16161E</span></div>
+      <div class="swatch"><div class="chip" style="background:#7AA2F7"></div><b>Accent · action</b><span>#7AA2F7</span></div>
+      <div class="swatch"><div class="chip" style="background:#9ECE6A"></div><b>Good · connected</b><span>#9ECE6A</span></div>
+      <div class="swatch"><div class="chip" style="background:#E0AF68"></div><b>Address</b><span>#E0AF68</span></div>
+      <div class="swatch"><div class="chip" style="background:#F787B7"></div><b>Code</b><span>#F787B7</span></div>
+    </div>
+  </section>
+
+  <!-- ================= FRIENDLINESS RULES ================= -->
+  <section>
+    <h2>The rules</h2>
+    <p class="stitle">User-friendly, defined</p>
+    <p class="lede">“Friendly” is a checklist here, not a mood. Every screen above and below
+    obeys all six — if a built screen breaks one, it goes back.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Rule</th><th>What it means in practice</th></tr></thead>
+        <tbody>
+          <tr><td class="q">One job per screen</td>
+              <td>Each screen asks exactly one thing of you: connect, or play. Never two.</td></tr>
+          <tr><td class="q">No jargon, anywhere</td>
+              <td>“Waiting for your phone”, never “listening on UDP 46821”. Ports, drivers
+              and tokens are for the fine print, not the interface.</td></tr>
+          <tr><td class="q">The next step is always on screen</td>
+              <td>Waiting screen tells you to open the phone app. Connected screen tells
+              you to start the game. You never have to remember what comes next.</td></tr>
+          <tr><td class="q">Errors say what to do</td>
+              <td>“That code has expired — read the new one off the PC window.” Every error
+              names the fix, or fixes itself with one button.</td></tr>
+          <tr><td class="q">Big targets, readable far away</td>
+              <td>Address and code sized to read from the couch; every phone button sized
+              for thumbs, not cursors.</td></tr>
+          <tr><td class="q">The happy path is zero typing</td>
+              <td>Scan the QR, tap Connect. Typing is the fallback, not the routine.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= DESKTOP ================= -->
+  <section>
+    <h2>App One · Windows</h2>
+    <p class="stitle">“PocketPad for PC” — a real window</p>
+    <p class="lede">One window, two states, zero terminal. The address and code are huge —
+    readable from across the room while you hold your phone. A QR code makes typing
+    optional: point the phone's scanner at it and you're connected.</p>
+
+    <div class="mock">
+      <div class="mock-cap"><span class="tag t-pc">State 1 · Waiting</span>
+        <h4>What you see when you open it</h4></div>
+      <div class="scrollme"><div class="win">
+        <div class="win-bar">
+          <svg class="appic" aria-hidden="true"><use href="#mark"/></svg>
+          <b>PocketPad for PC</b><i></i><i class="mx"></i><i class="cl"></i>
+        </div>
+        <div class="win-body">
+          <div class="win-left">
+            <div class="status-line"><span class="pulse"></span>Waiting for your phone…</div>
+            <div class="kv">
+              <label>PC address</label>
+              <div class="val"><span class="num addr">192.168.1.89</span>
+                <span class="copybtn">copy</span></div>
+            </div>
+            <div class="kv">
+              <label>Code</label>
+              <div class="val"><span class="num code">b9950694</span>
+                <span class="copybtn">copy</span></div>
+            </div>
+            <div class="win-steps">
+              <b>1.</b> Open <b>PocketPad</b> on your phone &nbsp;·&nbsp;
+              <b>2.</b> Scan the QR — or type these two values &nbsp;·&nbsp;
+              <b>3.</b> Play
+            </div>
+          </div>
+          <div class="win-right">
+            <div class="qr"><svg aria-hidden="true"><use href="#qrmark"/></svg></div>
+            <p class="qr-cap"><b>Scan with PocketPad</b><br>no typing needed</p>
+          </div>
+        </div>
+      </div></div>
+      <p class="mock-note"><b>Behaviour:</b> opens from the desktop icon or Start menu ·
+      closes to the tray so it can't be lost behind the game · code regenerates per launch ·
+      if the ViGEm driver is ever missing, this screen is replaced by a one-button
+      “Repair controller driver” card, not an error code.</p>
+    </div>
+
+    <div class="mock">
+      <div class="mock-cap"><span class="tag t-pc">State 2 · Connected</span>
+        <h4>What you see while playing</h4></div>
+      <div class="scrollme"><div class="win">
+        <div class="win-bar">
+          <svg class="appic" aria-hidden="true"><use href="#mark"/></svg>
+          <b>PocketPad for PC</b><i></i><i class="mx"></i><i class="cl"></i>
+        </div>
+        <div class="win-body">
+          <div class="win-left">
+            <div class="conn-head">
+              <div class="ok">✓</div>
+              <div><b>realme RMX3430 connected</b>
+              <span>Start your game — the phone shows up as an Xbox controller</span></div>
+            </div>
+            <label style="font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;
+                   text-transform:uppercase;color:#6B7392">Delay right now</label>
+            <div class="bigms"><span class="n">4</span><span class="u">ms — excellent</span></div>
+            <svg class="spark" width="240" height="34" viewBox="0 0 240 34" aria-hidden="true">
+              <polyline points="0,22 20,20 40,24 60,19 80,21 100,18 120,23 140,20 160,17 180,21 200,19 220,22 240,18"
+                fill="none" stroke="#9ECE6A" stroke-width="2"/>
+              <circle cx="240" cy="18" r="3.5" fill="#9ECE6A"/>
+            </svg>
+            <div class="statrow">
+              <div><b>38,412</b>inputs this session</div>
+              <div><b>52 min</b>connected</div>
+              <div><b>0</b>drops</div>
+            </div>
+          </div>
+          <div class="win-right">
+            <span class="dc">Disconnect phone</span>
+          </div>
+        </div>
+      </div></div>
+      <p class="mock-note"><b>Behaviour:</b> the delay number and graph are live · a phone
+      disconnect flips back to State 1 automatically, with the same code still valid.</p>
+    </div>
+  </section>
+
+  <!-- ================= MOBILE ================= -->
+  <section>
+    <h2>App Two · Android</h2>
+    <p class="stitle">PocketPad on the phone, cleaned up</p>
+    <p class="lede">Three screens, same identity. The connect screen stops looking like a
+    developer form; the gamepad gets real depth so your thumbs can find buttons without
+    looking.</p>
+
+    <div class="mock">
+      <div class="mock-cap"><span class="tag t-ph">Screen 1 · Connect</span>
+        <h4>Scan or type — and it remembers</h4></div>
+      <div class="scrollme"><div class="phone">
+        <div class="notch"></div>
+        <div class="c-grid">
+          <div class="c-left">
+            <div class="logo"><svg aria-hidden="true"><use href="#mark"/></svg><b>PocketPad</b></div>
+            <p><b>On your PC</b>, open<br><b>PocketPad for PC</b> —<br>then scan its QR code,<br>
+            or copy the two values<br>it shows into these boxes.</p>
+          </div>
+          <div class="c-right">
+            <div class="field f-addr"><label>PC address</label><div>192.168.1.89</div></div>
+            <div class="field f-code"><label>Code</label><div>b9950694</div></div>
+            <div class="btnrow">
+              <div class="cta">Connect</div>
+              <div class="qrbtn"><svg viewBox="0 0 84 84" aria-hidden="true"><use href="#qrmark"/></svg></div>
+            </div>
+            <div class="remember">remembers your last PC — next time it's one tap</div>
+          </div>
+        </div>
+      </div></div>
+      <p class="mock-note"><b>Changes from today:</b> QR scan button (camera opens, one
+      scan connects) · last address saved so returning users tap Connect once · clear
+      inline errors (“That code has expired — read the new one off the PC window”) instead
+      of raw error text.</p>
+    </div>
+
+    <div class="mock">
+      <div class="mock-cap"><span class="tag t-ph">Screen 2 · Gamepad</span>
+        <h4>Depth, glow, and a proper cross</h4></div>
+      <div class="scrollme"><div class="phone">
+        <div class="notch"></div>
+        <div class="shoulder" style="left:24px">LB</div>
+        <div class="shoulder" style="right:24px">RB</div>
+        <div class="g-top">
+          <div class="g-chip">🖱 Mouse</div>
+          <span class="g-ms">4 ms</span>
+        </div>
+        <div class="g-abs dcross">
+          <div class="darm v"></div><div class="darm h"></div>
+          <div class="dctr"></div>
+          <span class="darr up">▲</span><span class="darr dn">▼</span>
+          <span class="darr lf">◀</span><span class="darr rt">▶</span>
+        </div>
+        <div class="face fy">Y</div>
+        <div class="face fb">B</div>
+        <div class="face fa pressed">A</div>
+        <div class="face fx">X</div>
+        <div class="pilltab" style="left:calc(50% - 80px)">BACK</div>
+        <div class="pilltab" style="left:calc(50% + 8px)">START</div>
+      </div></div>
+      <p class="mock-note"><b>Changes from today:</b> the four floating squares become one
+      joined d-pad cross — diagonals land naturally where the arms meet · buttons get
+      bevel and shadow so they read as physical · a pressed button glows (shown on
+      <b>A</b>) and vibrates · everything sized up ~15% for your 720p screen.</p>
+    </div>
+
+    <div class="mock">
+      <div class="mock-cap"><span class="tag t-ph">Screen 3 · Trackpad</span>
+        <h4>Kept as-is, restyled to match</h4></div>
+      <p class="mock-note" style="margin-top:4px">The trackpad already works the right way —
+      it only inherits the new surface colours, button depth and the same top bar as the
+      gamepad. No layout change.</p>
+    </div>
+  </section>
+
+  <!-- ================= DECISIONS ================= -->
+  <section>
+    <h2>The fine print</h2>
+    <p class="stitle">Decisions baked into this design</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Decision</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td class="q">Name: “PocketPad for PC”</td>
+              <td>“Link” read as a web link and caused real confusion. The window title,
+              desktop icon and manual will all say PocketPad for PC.</td></tr>
+          <tr><td class="q">WPF, not web tech</td>
+              <td>Native Windows app, ~1 MB, instant start, no browser engine eating the
+              7.5 GB RAM this laptop has while a game runs.</td></tr>
+          <tr><td class="q">QR pairing both ends</td>
+              <td>Kills the typing step that produced every support question so far. Manual
+              entry stays as the fallback.</td></tr>
+          <tr><td class="q">Tray, not taskbar</td>
+              <td>The window can't be lost behind a fullscreen game; a green tray icon means
+              connected.</td></tr>
+          <tr><td class="q">Console app retired</td>
+              <td>It remains in the repo as a developer tool only. Users never see it
+              again.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>Approve this page and the build starts: Windows app first, then the phone update,
+  then the manual is rewritten from the new screens.</footer>
+
+</div>

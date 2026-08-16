@@ -84,6 +84,7 @@ On mode switch the sender emits one neutral packet of the mode it is *leaving*
 | reject  | PC → phone | `{"t":"reject","reason":"token"\|"version"}` then close |
 | ping    | phone → PC | `{"t":"ping","id":123,"ts":<phone ms>}` every 1 s |
 | pong    | PC → phone | `{"t":"pong","id":123,"ts":<echoed>}` — phone computes RTT for latency meter |
+| lat     | phone → PC | `{"t":"lat","ms":4}` — phone reports the RTT it just measured, so the PC UI can show it too. Optional; PC must tolerate its absence |
 | bye     | either     | `{"t":"bye"}` graceful disconnect |
 
 Disconnect = TCP close or 5 s without state packets → PC releases the virtual pad.

@@ -31,6 +31,11 @@ public sealed class ControlServer : IDisposable
     /// <summary>Fired when the connected phone disconnects (bye, EOF, or error).</summary>
     public event Action? ClientDisconnected;
 
+    /// <summary>Fired when the phone reports its measured round-trip in ms.</summary>
+    public event Action<int>? LatencyReported;
+
+    private TcpClient? _current;
+
     public ControlServer(string token, int port = DefaultPort)
     {
         _token = token;
@@ -94,6 +99,7 @@ public sealed class ControlServer : IDisposable
                 return;
             }
             claimed = true;
+            _current = client;
 
             await SendAsync(stream, new Msg { T = "welcome", V = ProtocolVersion, Udp = UdpStateListener.DefaultPort }, ct)
                 .ConfigureAwait(false);
@@ -107,6 +113,8 @@ public sealed class ControlServer : IDisposable
                     break;
                 if (msg.T == "ping")
                     await SendAsync(stream, new Msg { T = "pong", Id = msg.Id, Ts = msg.Ts }, ct).ConfigureAwait(false);
+                else if (msg.T == "lat" && msg.Ms is int ms)
+                    LatencyReported?.Invoke(ms);
             }
         }
         catch (Exception) when (!ct.IsCancellationRequested)
@@ -117,10 +125,18 @@ public sealed class ControlServer : IDisposable
         {
             if (claimed)
             {
+                _current = null;
                 Interlocked.Exchange(ref _hasClient, 0);
                 ClientDisconnected?.Invoke();
             }
         }
+    }
+
+    /// <summary>Force-drop the connected phone (the UI's Disconnect button).</summary>
+    public void DisconnectClient()
+    {
+        try { _current?.Close(); }
+        catch (ObjectDisposedException) { /* already gone */ }
     }
 
     private static async Task<Msg?> ReadMsgAsync(StreamReader reader, CancellationToken ct)
@@ -156,5 +172,6 @@ public sealed class ControlServer : IDisposable
         [JsonPropertyName("reason")] public string? Reason { get; set; }
         [JsonPropertyName("id")] public long? Id { get; set; }
         [JsonPropertyName("ts")] public long? Ts { get; set; }
+        [JsonPropertyName("ms")] public int? Ms { get; set; }
     }
 }

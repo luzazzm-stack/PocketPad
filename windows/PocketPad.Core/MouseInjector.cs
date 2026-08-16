@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
-using PocketPad.Core;
 
-namespace PocketPad.Cli;
+namespace PocketPad.Core;
 
 /// <summary>
 /// Turns trackpad packets into real Windows mouse input via SendInput —
