@@ -1,18 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Placeholder launcher icon: a simple gamepad silhouette. Replace before ship. -->
+<!-- "Control Cross" launcher icon (concept 01): d-pad left, four action dots right.
+     Scaled to keep every element inside the 66dp adaptive-icon mask circle. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group android:translateX="24" android:translateY="34">
+    <group
+        android:scaleX="0.78"
+        android:scaleY="0.78"
+        android:pivotX="54"
+        android:pivotY="54">
+
+        <!-- d-pad vertical bar: x30 y38 w11.5 h32 r4 -->
         <path
-            android:fillColor="#7AA2F7"
-            android:pathData="M12,0 L48,0 A12,12 0 0 1 60,12 L60,28 A12,12 0 0 1 48,40 L12,40 A12,12 0 0 1 0,28 L0,12 A12,12 0 0 1 12,0 Z" />
+            android:fillColor="#C6CEE8"
+            android:pathData="M34,38 h3.5 a4,4 0 0 1 4,4 v24 a4,4 0 0 1 -4,4 h-3.5 a4,4 0 0 1 -4,-4 v-24 a4,4 0 0 1 4,-4 Z" />
+        <!-- d-pad horizontal bar: x20.25 y47.75 w31 h12.5 r4 -->
         <path
-            android:fillColor="#1A1B26"
-            android:pathData="M10,16 h8 v-6 h6 v6 h8 v6 h-8 v6 h-6 v-6 h-8 Z" />
-        <path android:fillColor="#1A1B26" android:pathData="M44,10 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0" />
-        <path android:fillColor="#1A1B26" android:pathData="M44,30 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0" />
+            android:fillColor="#C6CEE8"
+            android:pathData="M24.25,47.75 h23 a4,4 0 0 1 4,4 v4.5 a4,4 0 0 1 -4,4 h-23 a4,4 0 0 1 -4,-4 v-4.5 a4,4 0 0 1 4,-4 Z" />
+
+        <!-- action dots: Y amber top, B red right, A green bottom, X blue left -->
+        <path android:fillColor="#E0AF68"
+            android:pathData="M69.6,42 a6.4,6.4 0 1 0 12.8,0 a6.4,6.4 0 1 0 -12.8,0 Z" />
+        <path android:fillColor="#F7768E"
+            android:pathData="M81.6,54 a6.4,6.4 0 1 0 12.8,0 a6.4,6.4 0 1 0 -12.8,0 Z" />
+        <path android:fillColor="#9ECE6A"
+            android:pathData="M69.6,66 a6.4,6.4 0 1 0 12.8,0 a6.4,6.4 0 1 0 -12.8,0 Z" />
+        <path android:fillColor="#8FB4FF"
+            android:pathData="M57.6,54 a6.4,6.4 0 1 0 12.8,0 a6.4,6.4 0 1 0 -12.8,0 Z" />
     </group>
 </vector>

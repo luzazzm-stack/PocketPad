@@ -6,6 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+    <ApplicationIcon>pocketpad.ico</ApplicationIcon>
+    <AssemblyTitle>PocketPad Link</AssemblyTitle>
+    <Product>PocketPad</Product>
   </PropertyGroup>
 
   <ItemGroup>
