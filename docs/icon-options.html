@@ -1,0 +1,252 @@
+<title>PocketPad Icon Options</title>
+<style>
+  :root {
+    --ink:#1A1C26; --ink-soft:#4B5168; --ink-faint:#767D96;
+    --ground:#F4F6FB; --surface:#FFFFFF; --surface-2:#EAEEF7; --rule:#D3DAEA;
+    --signal:#3A64C8; --signal-dim:#E4EAFA;
+    --shadow:0 1px 2px rgba(26,28,38,.06), 0 8px 24px rgba(26,28,38,.07);
+    --mono:"Cascadia Mono","Cascadia Code",Consolas,"SF Mono",ui-monospace,monospace;
+    --sans:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink:#C6CEE8; --ink-soft:#98A2C0; --ink-faint:#6B7392;
+      --ground:#16171F; --surface:#1E202B; --surface-2:#262936; --rule:#333748;
+      --signal:#7AA2F7; --signal-dim:#232A3E;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink:#C6CEE8; --ink-soft:#98A2C0; --ink-faint:#6B7392;
+    --ground:#16171F; --surface:#1E202B; --surface-2:#262936; --rule:#333748;
+    --signal:#7AA2F7; --signal-dim:#232A3E;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.3);
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+       font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px 96px}
+  :focus-visible{outline:2px solid var(--signal);outline-offset:3px;border-radius:3px}
+
+  header{padding:60px 0 32px;border-bottom:1px solid var(--rule)}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;
+           color:var(--signal);margin:0 0 14px}
+  h1{font-family:var(--mono);font-weight:700;font-size:clamp(34px,6vw,52px);letter-spacing:-.02em;
+     line-height:1.03;margin:0 0 14px;text-wrap:balance}
+  .standfirst{font-size:18px;color:var(--ink-soft);max-width:62ch;margin:0;text-wrap:pretty}
+
+  .option{padding:52px 0;border-bottom:1px solid var(--rule)}
+  .ohead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+  .onum{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.1em;
+        color:var(--signal);background:var(--signal-dim);border-radius:6px;padding:5px 9px}
+  .oname{font-family:var(--mono);font-size:clamp(21px,3.4vw,27px);font-weight:700;
+         letter-spacing:-.015em;margin:0}
+  .odesc{color:var(--ink-soft);margin:0 0 26px;max-width:64ch}
+
+  .row{display:grid;grid-template-columns:200px 1fr;gap:30px;align-items:start}
+  @media (max-width:680px){.row{grid-template-columns:1fr}}
+
+  .big{width:200px;height:200px;border-radius:44px;box-shadow:var(--shadow);display:block}
+
+  .sizes{display:flex;align-items:flex-end;gap:26px;flex-wrap:wrap;
+         background:var(--surface);border:1px solid var(--rule);border-radius:12px;
+         padding:20px 24px;box-shadow:var(--shadow)}
+  .size{display:flex;flex-direction:column;align-items:center;gap:9px}
+  .size svg{display:block;border-radius:22%}
+  .size span{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);
+             letter-spacing:.08em;font-variant-numeric:tabular-nums}
+  .verdict{margin-top:18px;font-size:14.5px;color:var(--ink-faint);
+           border-left:2px solid var(--rule);padding-left:13px;max-width:62ch}
+  .verdict strong{color:var(--ink-soft)}
+
+  footer{margin-top:56px;font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
+</style>
+
+<!-- Shared icon artwork. Each <symbol> is the full 108x108 adaptive-icon canvas;
+     the mark stays inside the centre 72x72 safe zone so Android's mask can't clip it. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#252838"/><stop offset="1" stop-color="#14151D"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8FB4FF"/><stop offset="1" stop-color="#5A82DC"/>
+    </linearGradient>
+    <linearGradient id="litglass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- 01 — CONTROL CROSS -->
+    <symbol id="ic1" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="url(#ink)"/>
+      <rect width="108" height="54" fill="url(#litglass)"/>
+      <!-- d-pad, left -->
+      <g fill="#C6CEE8">
+        <rect x="30" y="38" width="11.5" height="32" rx="4"/>
+        <rect x="20.25" y="47.75" width="31" height="12.5" rx="4"/>
+      </g>
+      <!-- four action dots, right -->
+      <circle cx="76" cy="42" r="6.4" fill="#E0AF68"/>
+      <circle cx="88" cy="54" r="6.4" fill="#F7768E"/>
+      <circle cx="76" cy="66" r="6.4" fill="#9ECE6A"/>
+      <circle cx="64" cy="54" r="6.4" fill="#8FB4FF"/>
+    </symbol>
+
+    <!-- 02 — PHONE IN HAND-MODE -->
+    <symbol id="ic2" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="url(#ink)"/>
+      <rect width="108" height="54" fill="url(#litglass)"/>
+      <!-- landscape phone body -->
+      <rect x="20" y="34" width="68" height="40" rx="8"
+            fill="#1B1D28" stroke="#8FB4FF" stroke-width="3.2"/>
+      <!-- d-pad on screen -->
+      <g fill="#8FB4FF">
+        <rect x="32.4" y="45.5" width="6.2" height="17" rx="2.2"/>
+        <rect x="27" y="50.9" width="17" height="6.2" rx="2.2"/>
+      </g>
+      <!-- action dots on screen -->
+      <circle cx="70" cy="47.5" r="3.7" fill="#E0AF68"/>
+      <circle cx="76.5" cy="54" r="3.7" fill="#F7768E"/>
+      <circle cx="70" cy="60.5" r="3.7" fill="#9ECE6A"/>
+      <circle cx="63.5" cy="54" r="3.7" fill="#8FB4FF"/>
+    </symbol>
+
+    <!-- 03 — P MONOGRAM -->
+    <symbol id="ic3" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="url(#ink)"/>
+      <rect width="108" height="54" fill="url(#litglass)"/>
+      <!-- stem + bowl of a P, drawn heavy so it survives 48px -->
+      <path d="M34 30 h22 a17.5 17.5 0 0 1 0 35 h-11 v13 h-11 z"
+            fill="none" stroke="url(#blue)" stroke-width="10" stroke-linejoin="round"/>
+      <!-- the counter is a d-pad -->
+      <g fill="#9ECE6A">
+        <rect x="52.6" y="40.4" width="5.6" height="14.6" rx="2"/>
+        <rect x="48" y="45" width="14.8" height="5.6" rx="2"/>
+      </g>
+    </symbol>
+
+    <!-- 04 — SIGNAL -->
+    <symbol id="ic4" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="url(#ink)"/>
+      <rect width="108" height="54" fill="url(#litglass)"/>
+      <!-- broadcast arcs -->
+      <g fill="none" stroke="#3E4A6B" stroke-width="4.6" stroke-linecap="round">
+        <path d="M28 72 a28 28 0 0 1 52 0"/>
+      </g>
+      <g fill="none" stroke="#8FB4FF" stroke-width="4.6" stroke-linecap="round">
+        <path d="M38.5 72 a17 17 0 0 1 31 0"/>
+      </g>
+      <!-- pad body -->
+      <rect x="34" y="66" width="40" height="20" rx="10" fill="#C6CEE8"/>
+      <g fill="#14151D">
+        <rect x="41.4" y="74.6" width="3.6" height="9.6" rx="1.3"/>
+        <rect x="38.4" y="77.6" width="9.6" height="3.6" rx="1.3"/>
+      </g>
+      <circle cx="63" cy="73.6" r="2.9" fill="#F7768E"/>
+      <circle cx="63" cy="81.4" r="2.9" fill="#9ECE6A"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Icon Concepts &nbsp;·&nbsp; Pick One</p>
+    <h1>Four Icons</h1>
+    <p class="standfirst">
+      Each drawn on Android's 108&nbsp;×&nbsp;108 adaptive-icon canvas with the mark kept
+      inside the safe centre, so no launcher shape crops it. The small sizes on the right are
+      the real test — that's how you'll actually see it on your home screen.
+    </p>
+  </header>
+
+  <div class="option">
+    <div class="ohead"><span class="onum">01</span><h2 class="oname">Control Cross</h2></div>
+    <p class="odesc">
+      The universal shorthand for a gamepad — a d-pad and four action buttons, nothing else.
+      Uses all four of the app's real button colours.
+    </p>
+    <div class="row">
+      <svg class="big" viewBox="0 0 108 108"><use href="#ic1"/></svg>
+      <div>
+        <div class="sizes">
+          <div class="size"><svg width="96" height="96" viewBox="0 0 108 108"><use href="#ic1"/></svg><span>96 px</span></div>
+          <div class="size"><svg width="72" height="72" viewBox="0 0 108 108"><use href="#ic1"/></svg><span>72 px</span></div>
+          <div class="size"><svg width="48" height="48" viewBox="0 0 108 108"><use href="#ic1"/></svg><span>48 px</span></div>
+          <div class="size"><svg width="32" height="32" viewBox="0 0 108 108"><use href="#ic1"/></svg><span>32 px</span></div>
+        </div>
+        <p class="verdict"><strong>Strongest at small sizes.</strong> Instantly reads as
+        "controller" with no thinking. The trade-off is that it doesn't say <em>phone</em> —
+        it could be any gamepad app.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="option">
+    <div class="ohead"><span class="onum">02</span><h2 class="oname">Phone Pad</h2></div>
+    <p class="odesc">
+      A phone held sideways with the controls living on its screen. This one explains the
+      whole product in a single glance.
+    </p>
+    <div class="row">
+      <svg class="big" viewBox="0 0 108 108"><use href="#ic2"/></svg>
+      <div>
+        <div class="sizes">
+          <div class="size"><svg width="96" height="96" viewBox="0 0 108 108"><use href="#ic2"/></svg><span>96 px</span></div>
+          <div class="size"><svg width="72" height="72" viewBox="0 0 108 108"><use href="#ic2"/></svg><span>72 px</span></div>
+          <div class="size"><svg width="48" height="48" viewBox="0 0 108 108"><use href="#ic2"/></svg><span>48 px</span></div>
+          <div class="size"><svg width="32" height="32" viewBox="0 0 108 108"><use href="#ic2"/></svg><span>32 px</span></div>
+        </div>
+        <p class="verdict"><strong>Best storyteller, weakest at 32&nbsp;px.</strong> The most
+        self-explanatory of the four and the best choice for a Play Store listing — but the
+        details inside the phone start to mush at the smallest size.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="option">
+    <div class="ohead"><span class="onum">03</span><h2 class="oname">P Monogram</h2></div>
+    <p class="odesc">
+      A heavy letter <em>P</em> whose counter is a d-pad. The most brandable option — it
+      scales to a favicon, a watermark, or a logo beside the product name.
+    </p>
+    <div class="row">
+      <svg class="big" viewBox="0 0 108 108"><use href="#ic3"/></svg>
+      <div>
+        <div class="sizes">
+          <div class="size"><svg width="96" height="96" viewBox="0 0 108 108"><use href="#ic3"/></svg><span>96 px</span></div>
+          <div class="size"><svg width="72" height="72" viewBox="0 0 108 108"><use href="#ic3"/></svg><span>72 px</span></div>
+          <div class="size"><svg width="48" height="48" viewBox="0 0 108 108"><use href="#ic3"/></svg><span>48 px</span></div>
+          <div class="size"><svg width="32" height="32" viewBox="0 0 108 108"><use href="#ic3"/></svg><span>32 px</span></div>
+        </div>
+        <p class="verdict"><strong>Most grown-up, least descriptive.</strong> Looks like a
+        company rather than a hobby project, and works everywhere a logo is needed. But a
+        stranger scrolling the store won't know what it does.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="option">
+    <div class="ohead"><span class="onum">04</span><h2 class="oname">Signal</h2></div>
+    <p class="odesc">
+      A pad broadcasting upward. Leads with the thing PocketPad is actually better at than
+      its competitors — being wireless and fast.
+    </p>
+    <div class="row">
+      <svg class="big" viewBox="0 0 108 108"><use href="#ic4"/></svg>
+      <div>
+        <div class="sizes">
+          <div class="size"><svg width="96" height="96" viewBox="0 0 108 108"><use href="#ic4"/></svg><span>96 px</span></div>
+          <div class="size"><svg width="72" height="72" viewBox="0 0 108 108"><use href="#ic4"/></svg><span>72 px</span></div>
+          <div class="size"><svg width="48" height="48" viewBox="0 0 108 108"><use href="#ic4"/></svg><span>48 px</span></div>
+          <div class="size"><svg width="32" height="32" viewBox="0 0 108 108"><use href="#ic4"/></svg><span>32 px</span></div>
+        </div>
+        <p class="verdict"><strong>Says "wireless" loudest.</strong> The arcs carry the
+        low-latency promise. Risk: broadcast arcs are heavily used by Wi-Fi, hotspot and
+        podcast apps, so it's the least distinctive shape in a crowded app drawer.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>Tell me a number and I'll build it into the app as the real launcher icon.</footer>
+</div>
