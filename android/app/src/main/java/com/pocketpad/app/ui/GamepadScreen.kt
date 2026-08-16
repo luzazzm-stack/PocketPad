@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -74,58 +73,76 @@ fun GamepadScreen(connection: PadConnection, latencyMs: Long?) {
                 .padding(top = 8.dp),
         )
 
-        // ---- D-pad cross, bottom-left ----
+        // ---- D-pad cross, left side ----
+        // Cluster is sized 3x the button so the offset children stay in bounds.
         val dSize = 64.dp
         Box(
             Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 36.dp)
+                .padding(start = 24.dp)
+                .size(dSize * 3)
         ) {
             PadButton("▲", dSize, RoundedCornerShape(12.dp),
-                Modifier.align(Alignment.Center).offset(y = -dSize),
+                Modifier.align(Alignment.TopCenter),
                 onChange = { up = it; push() })
             PadButton("▼", dSize, RoundedCornerShape(12.dp),
-                Modifier.align(Alignment.Center).offset(y = dSize),
+                Modifier.align(Alignment.BottomCenter),
                 onChange = { down = it; push() })
             PadButton("◀", dSize, RoundedCornerShape(12.dp),
-                Modifier.align(Alignment.Center).offset(x = -dSize),
+                Modifier.align(Alignment.CenterStart),
                 onChange = { left = it; push() })
             PadButton("▶", dSize, RoundedCornerShape(12.dp),
-                Modifier.align(Alignment.Center).offset(x = dSize),
+                Modifier.align(Alignment.CenterEnd),
                 onChange = { right = it; push() })
-            Box(Modifier.size(dSize).align(Alignment.Center)) // dead center spacer
         }
 
-        // ---- Face buttons diamond, bottom-right ----
+        // ---- Face buttons diamond, right side ----
         val fSize = 68.dp
         Box(
             Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 36.dp)
+                .padding(end = 24.dp)
+                .size(fSize * 3)
         ) {
             FaceButton("Y", fSize, Color(0xFFE0AF68),
-                Modifier.align(Alignment.Center).offset(y = -fSize),
+                Modifier.align(Alignment.TopCenter),
                 onChange = { setButton(Buttons.Y, it) })
             FaceButton("A", fSize, Color(0xFF9ECE6A),
-                Modifier.align(Alignment.Center).offset(y = fSize),
+                Modifier.align(Alignment.BottomCenter),
                 onChange = { setButton(Buttons.A, it) })
             FaceButton("X", fSize, Color(0xFF7AA2F7),
-                Modifier.align(Alignment.Center).offset(x = -fSize),
+                Modifier.align(Alignment.CenterStart),
                 onChange = { setButton(Buttons.X, it) })
             FaceButton("B", fSize, Color(0xFFF7768E),
-                Modifier.align(Alignment.Center).offset(x = fSize),
+                Modifier.align(Alignment.CenterEnd),
                 onChange = { setButton(Buttons.B, it) })
-            Box(Modifier.size(fSize).align(Alignment.Center))
         }
 
-        // ---- Start, bottom-center ----
+        // ---- Shoulders, top corners (Tekken: throws / Rage Art) ----
+        PadButton("LB", width = 92.dp, height = 44.dp,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 24.dp, top = 12.dp),
+            onChange = { setButton(Buttons.LB, it) })
+        PadButton("RB", width = 92.dp, height = 44.dp,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(end = 24.dp, top = 12.dp),
+            onChange = { setButton(Buttons.RB, it) })
+
+        // ---- Back / Start, bottom-center ----
         Row(
             Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
+                .padding(bottom = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            PadButton("START", width = 96.dp, height = 40.dp,
+            PadButton("BACK", width = 88.dp, height = 40.dp,
+                shape = RoundedCornerShape(20.dp),
+                onChange = { setButton(Buttons.BACK, it) })
+            PadButton("START", width = 88.dp, height = 40.dp,
                 shape = RoundedCornerShape(20.dp),
                 onChange = { setButton(Buttons.START, it) })
         }
