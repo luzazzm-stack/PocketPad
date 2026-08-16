@@ -34,6 +34,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.pocketpad.app.transport.PadConnection
 import com.pocketpad.app.ui.GamepadScreen
+import com.pocketpad.app.ui.TrackpadScreen
 
 private val PadColors = darkColorScheme(
     primary = Color(0xFF7AA2F7),
@@ -44,7 +45,11 @@ private val PadColors = darkColorScheme(
 sealed interface UiState {
     data class Idle(val error: String? = null) : UiState
     data object Connecting : UiState
-    data class Playing(val connection: PadConnection, val latencyMs: Long?) : UiState
+    data class Playing(
+        val connection: PadConnection,
+        val latencyMs: Long?,
+        val mode: PadConnection.Mode = PadConnection.Mode.PAD,
+    ) : UiState
 }
 
 class MainActivity : ComponentActivity() {
@@ -85,10 +90,24 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     is UiState.Connecting -> Centered { Text("Connecting…") }
-                    is UiState.Playing -> GamepadScreen(
-                        connection = s.connection,
-                        latencyMs = s.latencyMs,
-                    )
+                    is UiState.Playing -> {
+                        fun switchTo(m: PadConnection.Mode) {
+                            s.connection.setMode(m)
+                            ui = s.copy(mode = m)
+                        }
+                        when (s.mode) {
+                            PadConnection.Mode.PAD -> GamepadScreen(
+                                connection = s.connection,
+                                latencyMs = s.latencyMs,
+                                onSwitchToMouse = { switchTo(PadConnection.Mode.MOUSE) },
+                            )
+                            PadConnection.Mode.MOUSE -> TrackpadScreen(
+                                connection = s.connection,
+                                latencyMs = s.latencyMs,
+                                onSwitchToPad = { switchTo(PadConnection.Mode.PAD) },
+                            )
+                        }
+                    }
                 }
             }
         }

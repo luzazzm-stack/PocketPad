@@ -41,7 +41,7 @@ import com.pocketpad.app.transport.PadConnection
  * Every press/release recomputes the full PadState snapshot for the 125 Hz sender.
  */
 @Composable
-fun GamepadScreen(connection: PadConnection, latencyMs: Long?) {
+fun GamepadScreen(connection: PadConnection, latencyMs: Long?, onSwitchToMouse: () -> Unit) {
     // Single source of truth for what's held down right now.
     var buttons by remember { mutableStateOf(0) }
     var up by remember { mutableStateOf(false) }
@@ -64,14 +64,21 @@ fun GamepadScreen(connection: PadConnection, latencyMs: Long?) {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        Text(
-            text = latencyMs?.let { "$it ms" } ?: "— ms",
-            color = if ((latencyMs ?: 99) < 20) Color(0xFF9ECE6A) else Color(0xFFE0AF68),
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier
+        // ---- top centre: switch to trackpad, latency underneath ----
+        Column(
+            Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 8.dp),
-        )
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            ModeChip(label = "Mouse", icon = ModeIcon.Mouse, onClick = onSwitchToMouse)
+            Text(
+                text = latencyMs?.let { "$it ms" } ?: "— ms",
+                color = if ((latencyMs ?: 99) < 20) Color(0xFF9ECE6A) else Color(0xFFE0AF68),
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(top = 3.dp),
+            )
+        }
 
         // ---- D-pad cross, left side ----
         // Cluster is sized 3x the button so the offset children stay in bounds.

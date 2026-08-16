@@ -4,9 +4,9 @@ using System.Net.Sockets;
 namespace PocketPad.Core;
 
 /// <summary>
-/// Listens for 16-byte state packets on UDP (default port 46821), drops
-/// stale/duplicate packets by sequence number, and raises StateReceived
-/// for each accepted packet.
+/// Listens on UDP (default port 46821) for both packet types the phone sends —
+/// 16-byte pad state and 12-byte trackpad — dispatching on the magic byte.
+/// Drops stale/duplicate packets by sequence number (one shared seq space).
 /// </summary>
 public sealed class UdpStateListener : IDisposable
 {
@@ -16,8 +16,11 @@ public sealed class UdpStateListener : IDisposable
     private ushort _lastSeq;
     private bool _first = true;
 
-    /// <summary>Fired for every accepted (fresh) state packet.</summary>
+    /// <summary>Fired for every accepted (fresh) pad state packet.</summary>
     public event Action<StatePacket, IPEndPoint>? StateReceived;
+
+    /// <summary>Fired for every accepted (fresh) trackpad packet.</summary>
+    public event Action<MousePacket, IPEndPoint>? MouseReceived;
 
     /// <summary>UTC time of the last accepted packet; for disconnect timeouts.</summary>
     public DateTime LastPacketUtc { get; private set; } = DateTime.MinValue;
@@ -47,16 +50,23 @@ public sealed class UdpStateListener : IDisposable
                 continue;
             }
 
-            if (!StatePacket.TryDecode(result.Buffer, out var packet))
-                continue;
+            // Dispatch on the magic byte: pad state or trackpad.
+            ushort seq;
+            bool isPad = StatePacket.TryDecode(result.Buffer, out var pad);
+            MousePacket mouse = default;
+            if (isPad) seq = pad.Seq;
+            else if (MousePacket.TryDecode(result.Buffer, out mouse)) seq = mouse.Seq;
+            else continue;
 
-            if (!_first && !StatePacket.IsNewer(packet.Seq, _lastSeq))
+            if (!_first && !StatePacket.IsNewer(seq, _lastSeq))
                 continue; // stale or duplicate
 
             _first = false;
-            _lastSeq = packet.Seq;
+            _lastSeq = seq;
             LastPacketUtc = DateTime.UtcNow;
-            StateReceived?.Invoke(packet, result.RemoteEndPoint);
+
+            if (isPad) StateReceived?.Invoke(pad, result.RemoteEndPoint);
+            else MouseReceived?.Invoke(mouse, result.RemoteEndPoint);
         }
     }
 

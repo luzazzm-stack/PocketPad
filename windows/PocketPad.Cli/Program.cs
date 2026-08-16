@@ -4,14 +4,17 @@ using System.Security.Cryptography;
 using Nefarius.ViGEm.Client;
 using Nefarius.ViGEm.Client.Targets;
 using Nefarius.ViGEm.Client.Targets.Xbox360;
+using PocketPad.Cli;
 using PocketPad.Core;
 
 // PocketPad Link — Phase 1 console host.
 // Listens for phone input (TCP 46822 handshake + UDP 46821 state) and drives
 // a ViGEm virtual Xbox 360 pad. Games see a real controller.
 
-Console.WriteLine("PocketPad Link v0.1");
-Console.WriteLine("-------------------");
+Console.Title = "PocketPad Link";
+Console.WriteLine();
+Console.WriteLine("  P O C K E T P A D   L I N K              v0.1");
+Console.WriteLine("  ============================================");
 
 // ---- virtual pad ----
 ViGEmClient vigem;
@@ -21,22 +24,37 @@ try
 }
 catch (Exception e)
 {
-    Console.Error.WriteLine("Could not reach the ViGEm bus driver. Is ViGEmBus installed?");
-    Console.Error.WriteLine($"  ({e.Message})");
+    Console.WriteLine();
+    Console.WriteLine("  Could not start the virtual controller.");
+    Console.WriteLine("  The ViGEm driver is missing. Install it from:");
+    Console.WriteLine("      https://github.com/nefarius/ViGEmBus/releases");
+    Console.WriteLine($"  (details: {e.Message})");
+    Console.WriteLine();
+    Console.WriteLine("  Press any key to close.");
+    if (!Console.IsInputRedirected) Console.ReadKey(true);
     return 1;
 }
 
 using var _vigem = vigem;
 IXbox360Controller pad = vigem.CreateXbox360Controller();
 pad.Connect();
-Console.WriteLine("Virtual Xbox 360 pad created (check joy.cpl).");
+Console.WriteLine("  Controller ready.");
 
 // ---- pairing info ----
 string token = RandomNumberGenerator.GetHexString(8, lowercase: true);
+var ips = LocalIPv4s().ToList();
 Console.WriteLine();
-Console.WriteLine("Connect from the phone with:");
-foreach (var ip in LocalIPv4s())
-    Console.WriteLine($"  host={ip}  tcp={ControlServer.DefaultPort}  token={token}");
+Console.WriteLine("  Open PocketPad on your phone and enter:");
+Console.WriteLine();
+Console.ForegroundColor = ConsoleColor.Cyan;
+foreach (var ip in ips)
+    Console.WriteLine($"      PC address   {ip}");
+Console.WriteLine($"      Code         {token}");
+Console.ResetColor();
+Console.WriteLine();
+if (ips.Count > 1)
+    Console.WriteLine("  (More than one address listed? Try the first one.)");
+Console.WriteLine("  The phone must be on the same Wi-Fi as this PC.");
 Console.WriteLine();
 
 // ---- servers ----
@@ -46,16 +64,24 @@ Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 using var control = new ControlServer(token);
 using var udp = new UdpStateListener();
 
+var mouse = new MouseInjector();
 long packets = 0;
 control.ClientConnected += (name, ep) =>
 {
     udp.ResetSequence();
-    Console.WriteLine($"[+] {name} connected from {ep.Address}");
+    Console.ForegroundColor = ConsoleColor.Green;
+    Console.WriteLine($"  CONNECTED   {name}  ({ep.Address})");
+    Console.ResetColor();
+    Console.WriteLine("  You can start your game now.");
 };
 control.ClientDisconnected += () =>
 {
     ResetPad(pad);
-    Console.WriteLine($"[-] phone disconnected ({Interlocked.Read(ref packets)} packets this session)");
+    mouse.ReleaseAll();
+    Console.ForegroundColor = ConsoleColor.Yellow;
+    Console.WriteLine($"  Disconnected. ({Interlocked.Read(ref packets):N0} inputs sent)");
+    Console.ResetColor();
+    Console.WriteLine("  Waiting for the phone again...");
     Interlocked.Exchange(ref packets, 0);
 };
 udp.StateReceived += (state, _) =>
@@ -63,8 +89,13 @@ udp.StateReceived += (state, _) =>
     ApplyState(pad, state);
     Interlocked.Increment(ref packets);
 };
+udp.MouseReceived += (m, _) =>
+{
+    mouse.Apply(m);
+    Interlocked.Increment(ref packets);
+};
 
-Console.WriteLine("Waiting for the phone... (Ctrl+C to quit)");
+Console.WriteLine("  Waiting for the phone...        (close this window to stop)");
 try
 {
     await Task.WhenAll(control.RunAsync(cts.Token), udp.RunAsync(cts.Token));

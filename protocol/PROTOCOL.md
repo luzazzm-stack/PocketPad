@@ -50,6 +50,31 @@ analog triggers). Analog triggers are a v2 field.
 `0`=neutral, `1`=Up, `2`=UpRight, `3`=Right, `4`=DownRight, `5`=Down,
 `6`=DownLeft, `7`=Left, `8`=UpLeft. (Clockwise from Up; matches XInput hat.)
 
+## Mouse packet — phone → PC, 12 bytes, same UDP port
+
+Sent instead of the state packet while the phone is in trackpad mode, at the
+same 125 Hz. Movement and wheel are **relative deltas that the sender consumes**
+(accumulated since the last packet, then zeroed) — never re-send a delta, or the
+cursor keeps travelling. Buttons are level-triggered like the pad's.
+
+The receiver dispatches on the magic byte, so both packet types share one socket
+and one `seq` space.
+
+| Offset | Size | Field    | Notes |
+|--------|------|----------|-------|
+| 0      | 1    | magic    | `0x4D` ('M') |
+| 1      | 1    | version  | `0x01` |
+| 2      | 2    | seq      | u16, shared counter with the state packet |
+| 4      | 1    | buttons  | u8: bit0 Left, bit1 Right, bit2 Middle |
+| 5      | 1    | reserved | `0x00` |
+| 6      | 2    | dx       | i16, relative, +right |
+| 8      | 2    | dy       | i16, relative, +down |
+| 10     | 1    | wheel    | i8, notches, +up |
+| 11     | 1    | reserved | `0x00` |
+
+On mode switch the sender emits one neutral packet of the mode it is *leaving*
+(all pad buttons released / all mouse buttons released) so nothing sticks down.
+
 ## Control channel — TCP 46822, JSON lines (UTF-8, `\n`-terminated)
 
 | Message | Direction | Shape |

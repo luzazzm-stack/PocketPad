@@ -1,5 +1,7 @@
 package com.pocketpad.app.transport
 
+import com.pocketpad.app.protocol.MousePacket
+import com.pocketpad.app.protocol.MouseState
 import com.pocketpad.app.protocol.PadState
 import com.pocketpad.app.protocol.StatePacket
 import kotlinx.coroutines.CoroutineScope
@@ -40,8 +42,39 @@ class PadConnection(
         data class Disconnected(val error: String?) : Event
     }
 
+    /** Which kind of packet the sender is currently emitting. */
+    enum class Mode { PAD, MOUSE }
+
     /** UI writes the latest full state here; the sender loop reads it. */
     val state = AtomicReference(PadState())
+
+    /** Current send mode; flip with [setMode] so the handover stays clean. */
+    val mode = AtomicReference(Mode.PAD)
+
+    private val mouse = AtomicReference(MouseState())
+
+    fun setMode(m: Mode) {
+        // Drop everything held so nothing sticks down across the switch.
+        state.set(PadState())
+        mouse.set(MouseState())
+        mode.set(m)
+    }
+
+    /** Accumulate pointer movement (pixels) until the next packet goes out. */
+    fun moveMouse(dx: Int, dy: Int) {
+        mouse.getAndUpdate { it.copy(dx = it.dx + dx, dy = it.dy + dy) }
+    }
+
+    /** Accumulate wheel notches (+up). */
+    fun scrollMouse(notches: Int) {
+        mouse.getAndUpdate { it.copy(wheel = it.wheel + notches) }
+    }
+
+    fun setMouseButton(bit: Int, pressed: Boolean) {
+        mouse.getAndUpdate {
+            it.copy(buttons = if (pressed) it.buttons or bit else it.buttons and bit.inv())
+        }
+    }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null
@@ -74,13 +107,37 @@ class PadConnection(
                 // ---- UDP sender: 125 Hz ----
                 val ds = DatagramSocket().also { udp = it }
                 val addr = InetAddress.getByName(host)
-                val buf = ByteArray(StatePacket.SIZE)
+                val padBuf = ByteArray(StatePacket.SIZE)
+                val mouseBuf = ByteArray(MousePacket.SIZE)
                 val senderJob = launch {
                     var seq = 0
-                    while (isActive) {
-                        StatePacket.encode(seq, state.get(), buf)
-                        ds.send(DatagramPacket(buf, buf.size, addr, udpPort))
+                    var lastMode = Mode.PAD
+
+                    fun send(b: ByteArray) {
+                        ds.send(DatagramPacket(b, b.size, addr, udpPort))
                         seq = (seq + 1) and 0xFFFF
+                    }
+
+                    while (isActive) {
+                        val m = mode.get()
+                        if (m != lastMode) {
+                            // Emit one neutral packet of the mode we're leaving so the
+                            // PC releases whatever was held (PROTOCOL.md, mode switch).
+                            if (m == Mode.MOUSE) {
+                                send(StatePacket.encode(seq, PadState(), padBuf))
+                            } else {
+                                send(MousePacket.encode(seq, MouseState(), mouseBuf))
+                            }
+                            lastMode = m
+                        }
+
+                        if (m == Mode.PAD) {
+                            send(StatePacket.encode(seq, state.get(), padBuf))
+                        } else {
+                            // Deltas are consumed: take them and zero them atomically.
+                            val snapshot = mouse.getAndUpdate { it.consumed() }
+                            send(MousePacket.encode(seq, snapshot, mouseBuf))
+                        }
                         delay(8) // 125 Hz
                     }
                 }
