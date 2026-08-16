@@ -49,6 +49,19 @@ public partial class MainWindow : Window
             ShowView(DriverView);
             return;
         }
+        catch (System.Net.Sockets.SocketException)
+        {
+            // Ports taken — almost always a second copy that slipped past the
+            // mutex (e.g. different user session). Say so instead of dying.
+            MessageBox.Show(
+                "PocketPad seems to be running already — check the tray icons " +
+                "next to the clock.\n\nIf it isn't, another program is using " +
+                "network ports 46821/46822. Close it and reopen PocketPad.",
+                "PocketPad", MessageBoxButton.OK, MessageBoxImage.Information);
+            _reallyExit = true;
+            Application.Current.Shutdown();
+            return;
+        }
 
         var ip = LinkSession.PrimaryIPv4();
         AddrText.Text = ip.ToString();
@@ -250,6 +263,9 @@ public partial class MainWindow : Window
         WindowState = WindowState.Normal;
         Activate();
     }
+
+    /// <summary>The user double-clicked the desktop icon while we're running.</summary>
+    public void ShowFromSecondLaunch() => RestoreFromTray();
 
     private void ExitApp()
     {

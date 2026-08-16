@@ -83,10 +83,7 @@ fun LayoutEditScreen(
         ) {
             DpadCross(
                 size = 186.dp * lay.dpadScale,
-                haptics = false,
                 current = Dpad.NEUTRAL,
-                onDirection = {},
-                interactive = false,
             )
         }
 
@@ -112,9 +109,6 @@ fun LayoutEditScreen(
         ) {
             FaceCluster(
                 buttonSize = 62.dp * lay.faceScale,
-                haptics = false,
-                onButton = { _, _ -> },
-                interactive = false,
             )
         }
 

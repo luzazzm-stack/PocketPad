@@ -12,6 +12,15 @@ Works on **Android 6.0 and newer** (QR scanning needs 7.0+; older phones type th
 
 ---
 
+## Install it (one time)
+
+Grab both from the [**Releases page**](https://github.com/luzazzm-stack/PocketPad/releases):
+
+- **PC:** run `PocketPad-Setup.exe` — next-next-finish. It installs the app, the
+  controller driver, the firewall rule, and a desktop icon. No .NET needed.
+  (If SmartScreen appears: *More info → Run anyway* — the app isn't code-signed yet.)
+- **Phone:** open `PocketPad.apk` on the phone and allow the install.
+
 ## How to use it
 
 ### 1 · On the PC — open **PocketPad for PC**
