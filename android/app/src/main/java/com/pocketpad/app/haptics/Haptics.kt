@@ -32,19 +32,19 @@ class Haptics(context: Context) {
     @Volatile
     var strength: Int = 1
 
-    private val effects: Array<VibrationEffect>? = when {
-        vibrator == null || !vibrator.hasVibrator() -> null
-        Build.VERSION.SDK_INT >= 29 -> arrayOf(
-            VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK),
-            VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK),
-            VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK),
+    // Deliberately NOT the predefined TICK/CLICK/HEAVY_CLICK effects: on motors
+    // without native support Android synthesizes them (fallback=true), and the
+    // synthesized "tick" can land harder than the "click" — observed on the
+    // realme test device, where Light felt stronger than Medium. Hand-built
+    // one-shots keep the ordering honest everywhere: duration strictly grows,
+    // and amplitude grows too on motors that support it.
+    private val effects: Array<VibrationEffect>? =
+        if (vibrator == null || !vibrator.hasVibrator()) null
+        else arrayOf(
+            VibrationEffect.createOneShot(9, 84),    // light  — a whisper
+            VibrationEffect.createOneShot(24, 180),  // medium — a clear tap
+            VibrationEffect.createOneShot(48, 255),  // strong — a thump
         )
-        else -> arrayOf(
-            VibrationEffect.createOneShot(10, 120),
-            VibrationEffect.createOneShot(18, VibrationEffect.DEFAULT_AMPLITUDE),
-            VibrationEffect.createOneShot(32, 255),
-        )
-    }
 
     /** One short tick — a button registered. */
     fun tick() {
