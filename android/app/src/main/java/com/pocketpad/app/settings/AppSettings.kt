@@ -42,7 +42,7 @@ data class PadLayout(
 data class AppSettings(
     val layout: PadLayout = PadLayout(),
     val haptics: Boolean = true,
-    val hapticStrength: Int = 1, // 0 light · 1 medium · 2 strong
+    val hapticPercent: Int = 75, // 0–100% vibration power
     val mouseSensitivity: Float = 1.5f, // 0.5 slow … 3.0 fast
 )
 
@@ -51,7 +51,14 @@ class SettingsStore(private val prefs: SharedPreferences) {
     fun load(): AppSettings = AppSettings(
         layout = PadLayout.fromJson(prefs.getString("layout", null)),
         haptics = prefs.getBoolean("haptics", true),
-        hapticStrength = prefs.getInt("hapticStr", 1).coerceIn(0, 2),
+        hapticPercent = when {
+            prefs.contains("hapticPct") -> prefs.getInt("hapticPct", 75)
+            // migrate from the old 3-level setting
+            prefs.contains("hapticStr") -> when (prefs.getInt("hapticStr", 1)) {
+                0 -> 37; 2 -> 100; else -> 75
+            }
+            else -> 75
+        }.coerceIn(0, 100),
         mouseSensitivity = prefs.getFloat("mouseSens", 1.5f).coerceIn(0.5f, 3f),
     )
 
@@ -59,7 +66,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
         prefs.edit()
             .putString("layout", s.layout.toJson())
             .putBoolean("haptics", s.haptics)
-            .putInt("hapticStr", s.hapticStrength)
+            .putInt("hapticPct", s.hapticPercent)
             .putFloat("mouseSens", s.mouseSensitivity)
             .apply()
     }

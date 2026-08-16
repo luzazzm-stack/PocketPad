@@ -83,32 +83,34 @@ fun SettingsScreen(
                 {
                     val haptics = LocalHaptics.current
                     Row(
-                        Modifier.fillMaxWidth().padding(top = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        Modifier.fillMaxWidth().padding(top = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        listOf("Light", "Medium", "Strong").forEachIndexed { i, label ->
-                            val selected = settings.hapticStrength == i
-                            Box(
-                                Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(9.dp))
-                                    .background(if (selected) Color(0xFF7AA2F7) else Color(0xFF262A3A))
-                                    .clickable {
-                                        onChange(settings.copy(hapticStrength = i))
-                                        haptics.strength = i
-                                        haptics.tick() // preview the level you just picked
-                                    }
-                                    .padding(vertical = 8.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    label,
-                                    color = if (selected) Color(0xFF14151D) else Color(0xFF98A2C0),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                )
-                            }
-                        }
+                        Slider(
+                            value = settings.hapticPercent.toFloat(),
+                            onValueChange = {
+                                onChange(settings.copy(hapticPercent = it.toInt()))
+                            },
+                            onValueChangeFinished = {
+                                // preview the power you just chose
+                                haptics.percent = settings.hapticPercent
+                                haptics.tick()
+                            },
+                            valueRange = 0f..100f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFF7AA2F7),
+                                activeTrackColor = Color(0xFF7AA2F7),
+                                inactiveTrackColor = Color(0xFF31354A),
+                            ),
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            "${settings.hapticPercent}%",
+                            color = Color(0xFF98A2C0),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(start = 12.dp).width(44.dp),
+                        )
                     }
                 }
             },

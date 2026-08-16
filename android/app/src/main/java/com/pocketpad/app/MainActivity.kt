@@ -120,9 +120,9 @@ class MainActivity : ComponentActivity() {
                 val store = remember { SettingsStore(prefs) }
                 var settings by remember { mutableStateOf(store.load()) }
 
-                // Keep the vibrator strength in step with the setting.
+                // Keep the vibrator power in step with the setting.
                 androidx.compose.runtime.SideEffect {
-                    haptics.strength = settings.hapticStrength
+                    haptics.percent = settings.hapticPercent
                 }
 
                 fun updateSettings(s: AppSettings) {

@@ -88,7 +88,7 @@ Tap the **⚙ gear** on the gamepad:
 
 ![The settings screen: customize layout, vibrate on press, mouse speed](docs/images/phone-settings.png)
 
-**Vibrate on press** has Light / Medium / Strong levels — tap one to feel it.
+**Vibrate on press** has a 0–100% power slider — it buzzes a preview as you adjust.
 
 **Customize layout** lets you drag the cross and the buttons anywhere your
 thumbs prefer, and resize them — saved permanently:
