@@ -35,6 +35,7 @@ fun SettingsScreen(
     settings: AppSettings,
     onChange: (AppSettings) -> Unit,
     onEditLayout: () -> Unit,
+    onHelp: () -> Unit,
     onBack: () -> Unit,
 ) {
     Column(
@@ -76,6 +77,14 @@ fun SettingsScreen(
                     ),
                 )
             },
+        )
+
+        SettingCard(
+            title = "How to use PocketPad",
+            subtitle = "The full guide — connecting, the buttons, mouse mode, fixes",
+            trailing = { Text("?", color = Color(0xFF7AA2F7), fontSize = 20.sp,
+                fontWeight = FontWeight.Bold) },
+            onClick = onHelp,
         )
 
         SettingCard(

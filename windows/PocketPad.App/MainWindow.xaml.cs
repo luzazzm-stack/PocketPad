@@ -238,6 +238,19 @@ public partial class MainWindow : Window
         Process.Start(new ProcessStartInfo("https://github.com/nefarius/ViGEmBus/releases/latest")
         { UseShellExecute = true });
 
+    private void OnHelp(object sender, RoutedEventArgs e)
+    {
+        // The manual ships beside the exe; open it in the default browser.
+        var path = Path.Combine(AppContext.BaseDirectory, "manual.html");
+        if (File.Exists(path))
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        else
+            MessageBox.Show(this,
+                "The manual file (manual.html) is missing from the PocketPad folder.\n" +
+                "Reinstall PocketPad to restore it.",
+                "PocketPad", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
     private void OnRetryDriver(object sender, RoutedEventArgs e)
     {
         if (_session is null) StartSession();

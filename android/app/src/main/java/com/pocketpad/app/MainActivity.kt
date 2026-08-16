@@ -8,6 +8,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +53,7 @@ import com.pocketpad.app.settings.AppSettings
 import com.pocketpad.app.settings.SettingsStore
 import com.pocketpad.app.transport.PadConnection
 import com.pocketpad.app.ui.GamepadScreen
+import com.pocketpad.app.ui.HelpScreen
 import com.pocketpad.app.ui.LayoutEditScreen
 import com.pocketpad.app.ui.PadIcon
 import com.pocketpad.app.ui.QrIcon
@@ -108,6 +111,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 var ui by remember { mutableStateOf<UiState>(UiState.Idle()) }
+                var showHelp by remember { mutableStateOf(false) }
                 val store = remember { SettingsStore(prefs) }
                 var settings by remember { mutableStateOf(store.load()) }
 
@@ -140,12 +144,18 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                if (showHelp) {
+                    HelpScreen(onBack = { showHelp = false })
+                    return@MaterialTheme
+                }
+
                 when (val s = ui) {
                     is UiState.Idle -> ConnectScreen(
                         error = s.error,
                         lastHost = prefs.getString("host", "") ?: "",
                         lastToken = prefs.getString("token", "") ?: "",
                         onConnect = ::connect,
+                        onHelp = { showHelp = true },
                     )
                     is UiState.Connecting -> Box(
                         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -161,6 +171,7 @@ class MainActivity : ComponentActivity() {
                                 settings = settings,
                                 onChange = ::updateSettings,
                                 onEditLayout = { ui = s.copy(screen = Screen.EDIT_LAYOUT) },
+                                onHelp = { showHelp = true },
                                 onBack = { ui = s.copy(screen = Screen.PLAY) },
                             )
                             Screen.EDIT_LAYOUT -> LayoutEditScreen(
@@ -200,6 +211,7 @@ private fun ConnectScreen(
     lastHost: String,
     lastToken: String,
     onConnect: (host: String, token: String) -> Unit,
+    onHelp: () -> Unit,
 ) {
     var host by rememberSaveable { mutableStateOf(lastHost) }
     var token by rememberSaveable { mutableStateOf(lastToken) }
@@ -220,10 +232,29 @@ private fun ConnectScreen(
         }
     }
 
-    Row(
+    Box(
         Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+    ) {
+        // Help lives on this screen too — it's where people get stuck.
+        Text(
+            "?",
+            color = Color(0xFF7AA2F7),
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 14.dp, end = 22.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(Color(0xFF232634))
+                .clickable(onClick = onHelp)
+                .padding(horizontal = 13.dp, vertical = 4.dp),
+        )
+
+    Row(
+        Modifier
+            .fillMaxSize()
             .padding(horizontal = 30.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -328,5 +359,6 @@ private fun ConnectScreen(
                 )
             }
         }
+    }
     }
 }

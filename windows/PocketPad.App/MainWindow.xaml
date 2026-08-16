@@ -39,6 +39,11 @@
                         Style="{StaticResource CaptionButton}"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True"
                         Click="OnMinimize"/>
+                <Button x:Name="BtnHelp" DockPanel.Dock="Right" Content="?"
+                        Style="{StaticResource CaptionButton}" FontWeight="Bold"
+                        ToolTip="How to use PocketPad"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                        Click="OnHelp"/>
             </DockPanel>
         </Border>
 

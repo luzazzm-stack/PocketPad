@@ -34,6 +34,13 @@ android {
     }
 }
 
+// Keep the in-app help in sync with the single source at docs/manual.html.
+val copyManual = tasks.register<Copy>("copyManual") {
+    from(rootProject.projectDir.resolve("../docs/manual.html"))
+    into(projectDir.resolve("src/main/assets"))
+}
+tasks.named("preBuild") { dependsOn(copyManual) }
+
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.09.02")
     implementation(composeBom)

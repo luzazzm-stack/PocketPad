@@ -23,6 +23,9 @@
 
   <ItemGroup>
     <Resource Include="pocketpad.ico" />
+    <!-- The user manual ships beside the exe; the Help button opens it. -->
+    <Content Include="..\..\docs\manual.html" Link="manual.html"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
