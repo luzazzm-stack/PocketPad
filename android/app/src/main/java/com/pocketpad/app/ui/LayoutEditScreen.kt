@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -42,9 +43,11 @@ import com.pocketpad.app.settings.PadLayout
 
 /**
  * Layout customizer: every control renders exactly as it does in play, and all
- * of them can be dragged. Tapping one selects it so the size slider applies to
- * it — one slider for whichever control is selected, rather than eight.
- * Nothing is sent to the PC from this screen.
+ * of them can be dragged. Tapping one selects it, so the size slider and the
+ * show/hide button apply to it — one of each, rather than a dozen.
+ *
+ * Hidden controls stay on screen here, dimmed, so they can be found and brought
+ * back. Nothing is sent to the PC from this screen.
  */
 @Composable
 fun LayoutEditScreen(
@@ -53,7 +56,8 @@ fun LayoutEditScreen(
     onCancel: () -> Unit,
 ) {
     var lay by remember { mutableStateOf(initial) }
-    var selected by remember { mutableStateOf(PadElement.DPAD) }
+    var selected by remember { mutableStateOf(PadElement.LSTICK) }
+    val sel = lay.of(selected)
 
     Box(
         Modifier
@@ -61,10 +65,10 @@ fun LayoutEditScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         Text(
-            "Drag any control to move it · tap one to select, then resize it below",
+            "Drag any control to move it · tap one to select, then resize or hide it",
             color = Color(0xFF6B7392),
             fontSize = 12.sp,
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp),
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp),
         )
 
         PAD_SPECS.keys.forEach { element ->
@@ -80,32 +84,31 @@ fun LayoutEditScreen(
             ) {
                 when (element) {
                     PadElement.DPAD ->
-                        if (lay.stickMode) AnalogStick(size = 186.dp * l.scale)
-                        else DpadCross(size = 186.dp * l.scale, current = Dpad.NEUTRAL)
+                        DpadCross(size = DPAD_BASE * l.scale, current = Dpad.NEUTRAL)
 
-                    PadElement.FACE -> FaceCluster(buttonSize = 62.dp * l.scale)
+                    PadElement.LSTICK -> AnalogStick(size = STICK_BASE * l.scale, label = "L")
+                    PadElement.RSTICK -> AnalogStick(size = STICK_BASE * l.scale, label = "R")
 
-                    // Shown as a plain chip here: in the editor it is something
-                    // to place, not something to switch.
-                    PadElement.TOGGLE -> DepthButton(
-                        if (lay.stickMode) "STICK" else "D-PAD",
-                        pressed = false,
-                        Modifier.size(64.dp * l.scale, 24.dp * l.scale),
-                        RoundedCornerShape(12.dp),
-                    )
+                    PadElement.FACE -> FaceCluster(buttonSize = FACE_BUTTON_BASE * l.scale)
 
                     else -> {
                         val w = when (element) {
                             PadElement.LB, PadElement.RB -> 88.dp
                             PadElement.LT, PadElement.RT -> 78.dp
+                            PadElement.L3, PadElement.R3 -> 72.dp
                             else -> 86.dp
                         }
-                        val h = if (element == PadElement.BACK || element == PadElement.START) 36.dp else 40.dp
-                        val shape =
-                            if (element == PadElement.BACK || element == PadElement.START)
-                                RoundedCornerShape(50) else RoundedCornerShape(11.dp)
+                        val h = when (element) {
+                            PadElement.LB, PadElement.RB, PadElement.LT, PadElement.RT -> 40.dp
+                            else -> 34.dp
+                        }
+                        val shape = when (element) {
+                            PadElement.LB, PadElement.RB, PadElement.LT, PadElement.RT ->
+                                RoundedCornerShape(11.dp)
+                            else -> RoundedCornerShape(50)
+                        }
                         DepthButton(
-                            specOf(element).label,
+                            element.name,
                             pressed = false,
                             Modifier.size(w * l.scale, h * l.scale),
                             shape,
@@ -115,24 +118,24 @@ fun LayoutEditScreen(
             }
         }
 
-        // ---- bottom bar: size of the selected control + actions ----
+        // ---- bottom bar: the selected control's size and visibility ----
         Column(
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .background(Color(0xE61B1D26))
-                .padding(horizontal = 34.dp, vertical = 8.dp),
+                .background(Color(0xF01B1D26))
+                .padding(horizontal = 26.dp, vertical = 6.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "${specOf(selected).label} size",
+                    specOf(selected).label,
                     color = Color(0xFF7AA2F7),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.width(120.dp),
+                    modifier = Modifier.width(132.dp),
                 )
                 Slider(
-                    value = lay.of(selected).scale,
+                    value = sel.scale,
                     onValueChange = { v -> lay = lay.with(selected) { it.copy(scale = v) } },
                     valueRange = PadLayout.MIN_SCALE..PadLayout.MAX_SCALE,
                     colors = sliderColors(),
@@ -141,18 +144,20 @@ fun LayoutEditScreen(
             }
             Row(
                 Modifier.fillMaxWidth().padding(top = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 BarButton(
-                    if (lay.stickMode) "Left: STICK" else "Left: D-PAD",
-                    Color(0xFF2C3557), Color(0xFF9DB4F0), Modifier.width(120.dp),
-                ) { lay = lay.copy(stickMode = !lay.stickMode) }
+                    if (sel.visible) "Hide this" else "Show this",
+                    if (sel.visible) Color(0xFF3A2E3E) else Color(0xFF2C3557),
+                    if (sel.visible) Color(0xFFE59BB0) else Color(0xFF9DB4F0),
+                    Modifier.width(104.dp),
+                ) { lay = lay.with(selected) { it.copy(visible = !it.visible) } }
                 BarButton("Save layout", Color(0xFF7AA2F7), Color(0xFF14151D),
                     Modifier.weight(1f)) { onSave(lay) }
-                BarButton("Reset", Color(0xFF2A2E3F), Color(0xFF98A2C0),
-                    Modifier.width(84.dp)) { lay = PadLayout(stickMode = lay.stickMode) }
+                BarButton("Reset all", Color(0xFF2A2E3F), Color(0xFF98A2C0),
+                    Modifier.width(86.dp)) { lay = PadLayout() }
                 BarButton("Cancel", Color(0xFF2A2E3F), Color(0xFF98A2C0),
-                    Modifier.width(84.dp)) { onCancel() }
+                    Modifier.width(80.dp)) { onCancel() }
             }
         }
     }
@@ -173,13 +178,20 @@ private fun BoxScope.Editable(
     content: @Composable () -> Unit,
 ) {
     val spec = specOf(element)
+    val l = lay.of(element)
     Box(
         Modifier
             .align(spec.align)
-            .placeElement(spec, lay.of(element))
+            .placeElement(spec, l)
+            // Hidden controls stay visible here, faded, so they can be selected
+            // and switched back on. Hiding them outright would strand them.
+            .alpha(if (l.visible) 1f else 0.3f)
             .pointerInput(element) {
                 awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val down = awaitFirstDown(
+                        requireUnconsumed = false,
+                        pass = PointerEventPass.Initial,
+                    )
                     onSelect()
                     drag(down.id) { change ->
                         // Read the delta BEFORE consuming: positionChange()
@@ -196,7 +208,7 @@ private fun BoxScope.Editable(
                 if (selected) Color(0xFF7AA2F7) else Color(0xFF343A54),
                 RoundedCornerShape(14.dp),
             )
-            .padding(5.dp)
+            .padding(4.dp)
     ) { content() }
 }
 
@@ -220,9 +232,9 @@ private fun BarButton(
             .clip(RoundedCornerShape(10.dp))
             .background(bg)
             .clickable(onClick = onClick)
-            .padding(vertical = 9.dp),
+            .padding(vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = fg, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+        Text(label, color = fg, fontWeight = FontWeight.Bold, fontSize = 12.sp)
     }
 }

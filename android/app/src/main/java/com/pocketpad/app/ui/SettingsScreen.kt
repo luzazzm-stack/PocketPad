@@ -146,6 +146,29 @@ fun SettingsScreen(
                 }
             },
         )
+
+        SettingCard(
+            title = "Look sensitivity",
+            subtitle = "How far the right stick turns the camera in a game",
+            trailing = {},
+            below = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("steady", color = Color(0xFF4E5470), fontSize = 10.sp)
+                    Slider(
+                        value = settings.lookSensitivity,
+                        onValueChange = { onChange(settings.copy(lookSensitivity = it)) },
+                        valueRange = 0.5f..2f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color(0xFF7AA2F7),
+                            activeTrackColor = Color(0xFF7AA2F7),
+                            inactiveTrackColor = Color(0xFF31354A),
+                        ),
+                        modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
+                    )
+                    Text("quick", color = Color(0xFF4E5470), fontSize = 10.sp)
+                }
+            },
+        )
     }
 }
 

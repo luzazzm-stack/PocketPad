@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -56,7 +57,20 @@ import kotlin.math.atan2
 import kotlin.math.hypot
 
 /** Every control the unified input core can press. */
-enum class PadControl { LB, RB, LT, RT, Y, B, A, X, BACK, START }
+enum class PadControl { LB, RB, LT, RT, Y, B, A, X, L3, R3, BACK, START }
+
+/** The layout element each pressable control belongs to, for visibility. */
+internal fun elementOf(c: PadControl): PadElement = when (c) {
+    PadControl.LB -> PadElement.LB
+    PadControl.RB -> PadElement.RB
+    PadControl.LT -> PadElement.LT
+    PadControl.RT -> PadElement.RT
+    PadControl.L3 -> PadElement.L3
+    PadControl.R3 -> PadElement.R3
+    PadControl.BACK -> PadElement.BACK
+    PadControl.START -> PadElement.START
+    PadControl.A, PadControl.B, PadControl.X, PadControl.Y -> PadElement.FACE
+}
 
 private fun maskOf(set: Set<PadControl>): Int {
     var m = 0
@@ -69,6 +83,8 @@ private fun maskOf(set: Set<PadControl>): Int {
         PadControl.B -> Buttons.B
         PadControl.A -> Buttons.A
         PadControl.X -> Buttons.X
+        PadControl.L3 -> Buttons.L3
+        PadControl.R3 -> Buttons.R3
         PadControl.BACK -> Buttons.BACK
         PadControl.START -> Buttons.START
     }
@@ -105,16 +121,15 @@ private fun dpadDirAt(local: Offset, sizePx: Float): Dpad {
 }
 
 /** Knob radius as a fraction of the stick's radius; the rest is travel. */
-private const val STICK_KNOB_FRACTION = 0.42f
+private const val STICK_KNOB_FRACTION = 0.40f
 
 /** Ignore the first tenth of travel so a resting thumb reads as centred. */
 private const val STICK_DEADZONE = 0.10f
 
 /**
- * Stick deflection for a touch inside the left control, as -1..1 per axis in
- * screen space (y grows downward; the caller flips it for the wire).
- * The travel radius matches what [AnalogStick] draws, so the knob sits under
- * the thumb rather than lagging behind it.
+ * Stick deflection for a touch, as -1..1 per axis in screen space (y grows
+ * downward; the caller flips it for the wire). The travel radius matches what
+ * [AnalogStick] draws, so the knob sits under the thumb rather than lagging it.
  */
 private fun stickVecAt(local: Offset, sizePx: Float): Offset {
     if (sizePx <= 0f) return Offset.Zero
@@ -136,17 +151,19 @@ private fun axis(v: Float): Short = (v * 32767f).toInt().coerceIn(-32767, 32767)
  * The gamepad.
  *
  * ONE input core handles every finger for the whole screen instead of
- * per-button gesture handlers. Each frame, every active pointer is hit-tested
- * against every control with a finger-sized tolerance, which makes three
- * things work that per-button handlers can't do:
+ * per-control gesture handlers. Each frame every active pointer is hit-tested
+ * against every control with a finger-sized tolerance, which makes four things
+ * work that per-control handlers can't:
  *  - any number of simultaneous fingers, reliably;
  *  - a single finger landing between two buttons presses BOTH (Tekken's
  *    two-button moves with one thumb);
- *  - a finger that starts on the left control stays captured by it even when
- *    it rolls past the edge mid-dash.
+ *  - a finger that starts on a stick or the cross stays captured by it even
+ *    when it rolls past the edge mid-dash;
+ *  - both sticks driven at once — move and look together, which is what makes
+ *    a 3D game playable at all.
  *
- * Every control's position and size comes from [AppSettings.layout], so the
- * layout editor can move any of them.
+ * Every control's position, size and visibility comes from
+ * [AppSettings.layout], so the layout editor can move or hide any of them.
  */
 @Composable
 fun GamepadScreen(
@@ -155,22 +172,33 @@ fun GamepadScreen(
     settings: AppSettings,
     onSwitchToMouse: () -> Unit,
     onOpenSettings: () -> Unit,
-    onToggleStick: () -> Unit,
 ) {
     val hf = LocalHaptics.current
     val lay = settings.layout
-    val stickMode = lay.stickMode
+    val lookGain = settings.lookSensitivity
 
     // Control zones in root-window coordinates, reported by the visuals.
     val zones = remember { mutableStateMapOf<PadControl, Rect>() }
-    var leftZone by remember { mutableStateOf(Rect.Zero) }
-    var toggleZone by remember { mutableStateOf(Rect.Zero) }
+    var dpadZone by remember { mutableStateOf(Rect.Zero) }
+    var lStickZone by remember { mutableStateOf(Rect.Zero) }
+    var rStickZone by remember { mutableStateOf(Rect.Zero) }
     var boxOrigin by remember { mutableStateOf(Offset.Zero) }
 
     // What the input core decided this frame (visuals render from this).
     var pressed by remember { mutableStateOf(emptySet<PadControl>()) }
     var dpad by remember { mutableStateOf(Dpad.NEUTRAL) }
-    var stick by remember { mutableStateOf(Offset.Zero) }
+    var lStick by remember { mutableStateOf(Offset.Zero) }
+    var rStick by remember { mutableStateOf(Offset.Zero) }
+
+    // A hidden control is not composed, so its onGloballyPositioned never fires
+    // again and its old rectangle would stay hit-testable. Drop every cached
+    // zone whenever the layout changes; the visible ones report again at once.
+    LaunchedEffect(lay) {
+        zones.clear()
+        if (!lay.of(PadElement.DPAD).visible) dpadZone = Rect.Zero
+        if (!lay.of(PadElement.LSTICK).visible) lStickZone = Rect.Zero
+        if (!lay.of(PadElement.RSTICK).visible) rStickZone = Rect.Zero
+    }
 
     // Leaving the pad (gear tap, mouse mode, back) cancels the input core
     // mid-press while the sender loop keeps transmitting the last state at
@@ -180,50 +208,46 @@ fun GamepadScreen(
         onDispose {
             pressed = emptySet()
             dpad = Dpad.NEUTRAL
-            stick = Offset.Zero
+            lStick = Offset.Zero
+            rStick = Offset.Zero
             connection.setPadState(PadState())
         }
     }
-
-    val leftSpec = specOf(PadElement.DPAD)
-    val leftL = lay.of(PadElement.DPAD)
-    val leftSize = 186.dp * leftL.scale
 
     Box(
         Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .onGloballyPositioned { boxOrigin = it.positionInRoot() }
-            .pointerInput(settings.haptics, stickMode) {
-                val rectSlopPx = 14.dp.toPx()  // forgiveness on the fixed-size controls
-                val leftSlopPx = 22.dp.toPx()  // extra forgiving for entering the left control
-                var leftPointer: PointerId? = null
+            .pointerInput(settings.haptics, lookGain) {
+                val rectSlopPx = 14.dp.toPx()   // forgiveness on the fixed-size controls
+                val analogSlopPx = 20.dp.toPx() // forgiveness entering a stick or the cross
+                var dpadPointer: PointerId? = null
+                var lStickPointer: PointerId? = null
+                var rStickPointer: PointerId? = null
 
-                // A touch sitting on a real button, or on the stick/d-pad
-                // toggle, belongs to that control and never to the left one.
-                // The layout editor can drag controls on top of each other, and
-                // a captured pointer is excluded from the button pass below --
-                // so without this the overlapped button becomes unpressable and
-                // emits a phantom direction instead. The left control has area
-                // to spare; a swallowed button has none.
-                fun overUi(p: Offset): Boolean {
-                    if (toggleZone.contains(p)) return true
-                    return zones.any { (ctl, rect) ->
-                        if (ctl in FACE_CONTROLS) {
-                            (p - rect.center).getDistance() <= rect.width / 2f
-                        } else {
-                            rect.contains(p)
-                        }
+                // A touch sitting on a real button belongs to that button and
+                // never to a stick or the cross. Controls can be dragged on top
+                // of one another, and a captured pointer is excluded from the
+                // button pass below — so without this an overlapped button
+                // becomes unpressable. A stick has area to spare; a swallowed
+                // button has none.
+                fun overButton(p: Offset): Boolean = zones.any { (ctl, rect) ->
+                    if (ctl in FACE_CONTROLS) {
+                        (p - rect.center).getDistance() <= rect.width / 2f
+                    } else {
+                        rect.contains(p)
                     }
                 }
 
-                // A restart -- haptics toggled, the left control switched shape,
-                // or ACTION_CANCEL from a notification-shade pull -- drops every
-                // held finger without a corresponding release, so start from an
+                // A restart — haptics toggled, sensitivity changed, or
+                // ACTION_CANCEL from a notification-shade pull — drops every
+                // held finger without a matching release, so start from an
                 // explicit neutral rather than inheriting stale values.
                 pressed = emptySet()
                 dpad = Dpad.NEUTRAL
-                stick = Offset.Zero
+                lStick = Offset.Zero
+                rStick = Offset.Zero
                 connection.setPadState(PadState())
 
                 awaitPointerEventScope {
@@ -231,26 +255,38 @@ fun GamepadScreen(
                         val event = awaitPointerEvent()
                         val down = event.changes.filter { it.pressed }
 
-                        // ---- left control: capture semantics ----
-                        // The pointer that lands on it OWNS it until lift-off,
-                        // wherever it rolls. Others never steal it.
-                        if (leftPointer == null || down.none { it.id == leftPointer }) {
-                            leftPointer = down.firstOrNull {
-                                val p = boxOrigin + it.position
-                                leftZone.width > 0f &&
-                                    leftZone.inflate(leftSlopPx).contains(p) &&
-                                    !overUi(p)
-                            }?.id
-                        }
-                        val leftTouch = down.firstOrNull { it.id == leftPointer }
-                        val local = leftTouch?.let { boxOrigin + it.position - leftZone.topLeft }
+                        // ---- analog captures ----
+                        // Whichever pointer lands on a stick or the cross OWNS
+                        // it until lift-off, wherever it rolls. Three separate
+                        // captures let both sticks and the cross run at once.
+                        if (dpadPointer != null && down.none { it.id == dpadPointer }) dpadPointer = null
+                        if (lStickPointer != null && down.none { it.id == lStickPointer }) lStickPointer = null
+                        if (rStickPointer != null && down.none { it.id == rStickPointer }) rStickPointer = null
 
-                        val newDpad =
-                            if (!stickMode && local != null) dpadDirAt(local, leftZone.width)
-                            else Dpad.NEUTRAL
-                        val newStick =
-                            if (stickMode && local != null) stickVecAt(local, leftZone.width)
-                            else Offset.Zero
+                        fun taken(id: PointerId) =
+                            id == dpadPointer || id == lStickPointer || id == rStickPointer
+
+                        fun claimFor(zone: Rect): PointerId? = down.firstOrNull { ch ->
+                            val p = boxOrigin + ch.position
+                            !taken(ch.id) &&
+                                zone.width > 0f &&
+                                zone.inflate(analogSlopPx).contains(p) &&
+                                !overButton(p)
+                        }?.id
+
+                        if (lStickPointer == null) lStickPointer = claimFor(lStickZone)
+                        if (rStickPointer == null) rStickPointer = claimFor(rStickZone)
+                        if (dpadPointer == null) dpadPointer = claimFor(dpadZone)
+
+                        val newDpad = down.firstOrNull { it.id == dpadPointer }?.let {
+                            dpadDirAt(boxOrigin + it.position - dpadZone.topLeft, dpadZone.width)
+                        } ?: Dpad.NEUTRAL
+                        val newL = down.firstOrNull { it.id == lStickPointer }?.let {
+                            stickVecAt(boxOrigin + it.position - lStickZone.topLeft, lStickZone.width)
+                        } ?: Offset.Zero
+                        val newR = down.firstOrNull { it.id == rStickPointer }?.let {
+                            stickVecAt(boxOrigin + it.position - rStickZone.topLeft, rStickZone.width)
+                        } ?: Offset.Zero
 
                         // ---- buttons: every finger vs every zone ----
                         // A touch within (radius + slop) of a circle presses it,
@@ -262,7 +298,7 @@ fun GamepadScreen(
                             for ((ctl, rect) in zones) {
                                 val isRound = ctl in FACE_CONTROLS
                                 val hit = down.any { ch ->
-                                    if (ch.id == leftPointer) return@any false
+                                    if (taken(ch.id)) return@any false
                                     val p = boxOrigin + ch.position
                                     if (isRound) {
                                         (p - rect.center).getDistance() <=
@@ -275,8 +311,10 @@ fun GamepadScreen(
                             }
                         }
 
-                        if (newPressed != pressed || newDpad != dpad || newStick != stick) {
-                            // Buzz on a new press or a new direction only --
+                        if (newPressed != pressed || newDpad != dpad ||
+                            newL != lStick || newR != rStick
+                        ) {
+                            // Buzz on a new press or a new direction only —
                             // never on stick travel, which changes constantly.
                             if (settings.haptics &&
                                 ((newPressed - pressed).isNotEmpty() ||
@@ -284,13 +322,17 @@ fun GamepadScreen(
                             ) hf.tick()
                             pressed = newPressed
                             dpad = newDpad
-                            stick = newStick
+                            lStick = newL
+                            rStick = newR
                             connection.setPadState(
                                 PadState(
                                     buttons = maskOf(newPressed),
                                     dpad = newDpad,
-                                    lx = axis(newStick.x),
-                                    ly = axis(-newStick.y), // screen y grows down, thumbstick up
+                                    // screen y grows down, thumbstick up
+                                    lx = axis(newL.x),
+                                    ly = axis(-newL.y),
+                                    rx = axis(newR.x * lookGain),
+                                    ry = axis(-newR.y * lookGain),
                                 )
                             )
                         }
@@ -302,7 +344,7 @@ fun GamepadScreen(
         Row(
             Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 8.dp),
+                .padding(top = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -315,7 +357,7 @@ fun GamepadScreen(
             GearChip(onClick = onOpenSettings)
         }
 
-        // ---- shoulders and triggers ----
+        // ---- shoulders, triggers, stick clicks, menu ----
         PlacedButton(PadControl.LB, PadElement.LB, "LB", 88.dp, 40.dp,
             RoundedCornerShape(11.dp), lay, pressed) { zones[PadControl.LB] = it }
         PlacedButton(PadControl.LT, PadElement.LT, "LT", 78.dp, 40.dp,
@@ -324,58 +366,72 @@ fun GamepadScreen(
             RoundedCornerShape(11.dp), lay, pressed) { zones[PadControl.RB] = it }
         PlacedButton(PadControl.RT, PadElement.RT, "RT", 78.dp, 40.dp,
             RoundedCornerShape(11.dp), lay, pressed) { zones[PadControl.RT] = it }
+        PlacedButton(PadControl.L3, PadElement.L3, "L3", 72.dp, 34.dp,
+            RoundedCornerShape(50), lay, pressed) { zones[PadControl.L3] = it }
+        PlacedButton(PadControl.R3, PadElement.R3, "R3", 72.dp, 34.dp,
+            RoundedCornerShape(50), lay, pressed) { zones[PadControl.R3] = it }
+        PlacedButton(PadControl.BACK, PadElement.BACK, "BACK", 86.dp, 34.dp,
+            RoundedCornerShape(50), lay, pressed) { zones[PadControl.BACK] = it }
+        PlacedButton(PadControl.START, PadElement.START, "START", 86.dp, 34.dp,
+            RoundedCornerShape(50), lay, pressed) { zones[PadControl.START] = it }
 
-        // ---- left control: cross or stick, whichever the toggle selected ----
-        if (stickMode) {
-            AnalogStick(
-                size = leftSize,
-                knob = stick,
-                modifier = Modifier
-                    .align(leftSpec.align)
-                    .placeElement(leftSpec, leftL)
-                    .onGloballyPositioned { leftZone = it.boundsInRoot() },
-            )
-        } else {
+        // ---- d-pad ----
+        val dpadSpec = specOf(PadElement.DPAD)
+        val dpadL = lay.of(PadElement.DPAD)
+        if (dpadL.visible) {
             DpadCross(
-                size = leftSize,
+                size = DPAD_BASE * dpadL.scale,
                 current = dpad,
                 modifier = Modifier
-                    .align(leftSpec.align)
-                    .placeElement(leftSpec, leftL)
-                    .onGloballyPositioned { leftZone = it.boundsInRoot() },
+                    .align(dpadSpec.align)
+                    .placeElement(dpadSpec, dpadL)
+                    .onGloballyPositioned { dpadZone = it.boundsInRoot() },
             )
         }
 
-        // Sits between BACK and START, and is movable like everything else.
-        val toggleSpec = specOf(PadElement.TOGGLE)
-        val toggleL = lay.of(PadElement.TOGGLE)
-        StickToggle(
-            stickMode = stickMode,
-            onToggle = onToggleStick,
-            scale = toggleL.scale,
-            modifier = Modifier
-                .align(toggleSpec.align)
-                .placeElement(toggleSpec, toggleL)
-                .onGloballyPositioned { toggleZone = it.boundsInRoot() },
-        )
+        // ---- left stick: movement ----
+        val lSpec = specOf(PadElement.LSTICK)
+        val lL = lay.of(PadElement.LSTICK)
+        if (lL.visible) {
+            AnalogStick(
+                size = STICK_BASE * lL.scale,
+                knob = lStick,
+                label = "L",
+                modifier = Modifier
+                    .align(lSpec.align)
+                    .placeElement(lSpec, lL)
+                    .onGloballyPositioned { lStickZone = it.boundsInRoot() },
+            )
+        }
+
+        // ---- right stick: camera and aim ----
+        val rSpec = specOf(PadElement.RSTICK)
+        val rL = lay.of(PadElement.RSTICK)
+        if (rL.visible) {
+            AnalogStick(
+                size = STICK_BASE * rL.scale,
+                knob = rStick,
+                label = "R",
+                modifier = Modifier
+                    .align(rSpec.align)
+                    .placeElement(rSpec, rL)
+                    .onGloballyPositioned { rStickZone = it.boundsInRoot() },
+            )
+        }
 
         // ---- face cluster ----
         val faceSpec = specOf(PadElement.FACE)
         val faceL = lay.of(PadElement.FACE)
-        FaceCluster(
-            buttonSize = 62.dp * faceL.scale,
-            pressed = pressed,
-            onZone = { ctl, rect -> zones[ctl] = rect },
-            modifier = Modifier
-                .align(faceSpec.align)
-                .placeElement(faceSpec, faceL),
-        )
-
-        // ---- back / start ----
-        PlacedButton(PadControl.BACK, PadElement.BACK, "BACK", 86.dp, 36.dp,
-            RoundedCornerShape(50), lay, pressed) { zones[PadControl.BACK] = it }
-        PlacedButton(PadControl.START, PadElement.START, "START", 86.dp, 36.dp,
-            RoundedCornerShape(50), lay, pressed) { zones[PadControl.START] = it }
+        if (faceL.visible) {
+            FaceCluster(
+                buttonSize = FACE_BUTTON_BASE * faceL.scale,
+                pressed = pressed,
+                onZone = { ctl, rect -> zones[ctl] = rect },
+                modifier = Modifier
+                    .align(faceSpec.align)
+                    .placeElement(faceSpec, faceL),
+            )
+        }
     }
 }
 
@@ -383,8 +439,8 @@ internal val FACE_CONTROLS = setOf(PadControl.A, PadControl.B, PadControl.X, Pad
 
 /**
  * How far past its drawn edge a face button still answers, as a fraction of the
- * button's width — so it tracks the 0.7–1.5x size slider instead of being a
- * fixed dp that only suits one setting.
+ * button's width — so it tracks the size slider instead of being a fixed dp
+ * that only suits one setting.
  *
  * The four buttons form a diamond with adjacent centres `width * sqrt(2)` apart,
  * so two hit circles of radius `width * (0.5 + f)` overlap only while
@@ -396,7 +452,7 @@ internal val FACE_CONTROLS = setOf(PadControl.A, PadControl.B, PadControl.X, Pad
  */
 internal const val FACE_SLOP_FRACTION = 0.28f
 
-/** A rectangular control placed and sized from the saved layout. */
+/** A rectangular control placed, sized and shown per the saved layout. */
 @Composable
 private fun BoxScope.PlacedButton(
     ctl: PadControl,
@@ -409,8 +465,9 @@ private fun BoxScope.PlacedButton(
     pressed: Set<PadControl>,
     onZone: (Rect) -> Unit,
 ) {
-    val spec = specOf(element)
     val l = lay.of(element)
+    if (!l.visible) return
+    val spec = specOf(element)
     DepthButton(
         label,
         pressed = ctl in pressed,
@@ -498,17 +555,18 @@ fun DpadCross(
     }
 }
 
-// ============================== analog stick ==============================
+// ============================== analog sticks ==============================
 
 /**
  * Visual-only analog stick; the screen's input core feeds [knob] as -1..1 per
  * axis in screen space. Drawn travel matches [stickVecAt] so the knob tracks
- * the thumb exactly.
+ * the thumb exactly. [label] marks which stick it is at a glance.
  */
 @Composable
 fun AnalogStick(
     size: Dp,
     knob: Offset = Offset.Zero,
+    label: String? = null,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier.size(size)) {
@@ -521,7 +579,7 @@ fun AnalogStick(
             drawCircle(Color(0xFF262A3A), radius = r * 0.93f, center = c)
             drawCircle(
                 Color(0xFF31354A),
-                radius = r * 0.62f,
+                radius = r * 0.64f,
                 center = c,
                 style = Stroke(width = w * 0.011f),
             )
@@ -529,7 +587,7 @@ fun AnalogStick(
             val kr = r * STICK_KNOB_FRACTION
             val travel = r - kr
             val kc = Offset(r + knob.x * travel, r + knob.y * travel)
-            drawCircle(Color(0xFF20232F), radius = kr * 1.04f, center = kc)
+            drawCircle(Color(0xFF20232F), radius = kr * 1.05f, center = kc)
             drawCircle(
                 Brush.verticalGradient(
                     listOf(Color(0xFF464F78), Color(0xFF313753)),
@@ -539,48 +597,17 @@ fun AnalogStick(
                 radius = kr,
                 center = kc,
             )
-            drawCircle(Color(0xFF7C86AC), radius = kr * 0.28f, center = kc)
+            drawCircle(Color(0xFF7C86AC), radius = kr * 0.26f, center = kc)
         }
-    }
-}
-
-/** Switches the left control between the d-pad cross and the analog stick. */
-@Composable
-private fun StickToggle(
-    stickMode: Boolean,
-    onToggle: () -> Unit,
-    scale: Float = 1f,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier
-            .size(64.dp * scale, 24.dp * scale)
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (stickMode) Color(0xFF2C3557) else Color(0xFF232634))
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        // Release-inside, like the gear chip: this sits right by
-                        // the thumb, so a brush past it must be abortable.
-                        val down = awaitFirstDown()
-                        down.consume()
-                        val up = waitForUpOrCancellation() ?: continue
-                        up.consume()
-                        val p = up.position
-                        if (p.x >= 0f && p.y >= 0f &&
-                            p.x <= size.width && p.y <= size.height
-                        ) onToggle()
-                    }
-                }
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            if (stickMode) "STICK" else "D-PAD",
-            color = if (stickMode) Color(0xFF9DB4F0) else Color(0xFF98A2C0),
-            fontWeight = FontWeight.Bold,
-            fontSize = 10.sp,
-        )
+        if (label != null) {
+            Text(
+                label,
+                color = Color(0xFF3E4560),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 6.dp),
+            )
+        }
     }
 }
 

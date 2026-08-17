@@ -199,17 +199,6 @@ class MainActivity : ComponentActivity() {
                                     settings = settings,
                                     onSwitchToMouse = { switchTo(PadConnection.Mode.MOUSE) },
                                     onOpenSettings = { ui = s.copy(screen = Screen.SETTINGS) },
-                                    onToggleStick = {
-                                        // Persist immediately: the shape of the
-                                        // left control should survive a restart.
-                                        updateSettings(
-                                            settings.copy(
-                                                layout = settings.layout.copy(
-                                                    stickMode = !settings.layout.stickMode
-                                                )
-                                            )
-                                        )
-                                    },
                                 )
                                 PadConnection.Mode.MOUSE -> TrackpadScreen(
                                     connection = s.connection,
