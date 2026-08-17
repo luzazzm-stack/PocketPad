@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,9 +26,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import com.pocketpad.app.haptics.LocalHaptics
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,6 +38,7 @@ import com.pocketpad.app.protocol.MouseButtons
 import com.pocketpad.app.settings.AppSettings
 import com.pocketpad.app.transport.PadConnection
 import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.roundToInt
 
 /** Pixels of vertical travel per wheel notch on the scroll strip. */
@@ -98,26 +100,47 @@ fun TrackpadScreen(
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(14.dp))
                     .background(Color(0xFF24283B))
-                    .pointerInput(Unit) {
-                        detectDragGestures { change, drag ->
-                            change.consume()
-                            connection.moveMouse(
-                                (drag.x * sensitivity).roundToInt(),
-                                (drag.y * sensitivity).roundToInt(),
-                            )
-                        }
-                    }
-                    .pointerInput(Unit) {
-                        detectTapGestures {
-                            haptics.tick()
-                            connection.setMouseButton(MouseButtons.LEFT, true)
-                            connection.setMouseButton(MouseButtons.LEFT, false)
+                    // One handler for both move and click. Two separate
+                    // detectors (drag + tap) raced each other for the same
+                    // touch, so whichever claimed it first won and the other
+                    // silently did nothing — that is why moving and clicking
+                    // both felt unreliable.
+                    .pointerInput(sensitivity) {
+                        val tapSlopPx = 12.dp.toPx()
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            down.consume()
+                            var travel = 0f
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) {
+                                    change.consume()
+                                    break
+                                }
+                                val d = change.positionChange()
+                                if (d != Offset.Zero) {
+                                    travel += hypot(d.x, d.y)
+                                    connection.moveMouse(
+                                        (d.x * sensitivity).roundToInt(),
+                                        (d.y * sensitivity).roundToInt(),
+                                    )
+                                    change.consume()
+                                }
+                            }
+                            // A touch that never really travelled is a click —
+                            // anywhere on the pad, including the drag area, so
+                            // the LEFT CLICK button is never a required trip.
+                            if (travel <= tapSlopPx) {
+                                haptics.tick()
+                                connection.clickMouse(MouseButtons.LEFT)
+                            }
                         }
                     },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    "drag to move  ·  tap to click",
+                    "drag to move  ·  tap anywhere to click",
                     color = Color(0xFF565F89),
                     style = MaterialTheme.typography.bodySmall,
                 )

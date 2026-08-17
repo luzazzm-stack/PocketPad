@@ -21,6 +21,7 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -53,10 +54,19 @@ class PadConnection(
 
     private val mouse = AtomicReference(MouseState())
 
+    /**
+     * Buttons pressed by a tap rather than held by a finger. The sender clears
+     * each one only after it has actually gone out in a packet — a tap that set
+     * and cleared the bit between two 8 ms samples would otherwise never be
+     * transmitted at all, and the click would be silently lost.
+     */
+    private val clickLatch = AtomicInteger(0)
+
     fun setMode(m: Mode) {
         // Drop everything held so nothing sticks down across the switch.
         state.set(PadState())
         mouse.set(MouseState())
+        clickLatch.set(0)
         mode.set(m)
     }
 
@@ -71,9 +81,22 @@ class PadConnection(
     }
 
     fun setMouseButton(bit: Int, pressed: Boolean) {
+        // An explicit hold outranks a tap latch, so releasing the finger — not
+        // the sender — is what ends the press.
+        if (pressed) clickLatch.getAndUpdate { it and bit.inv() }
         mouse.getAndUpdate {
             it.copy(buttons = if (pressed) it.buttons or bit else it.buttons and bit.inv())
         }
+    }
+
+    /**
+     * A tap: press [bit] now and let the sender release it once it has been
+     * transmitted. Use this instead of an immediate press/release pair, which
+     * the 125 Hz sampler almost always misses entirely.
+     */
+    fun clickMouse(bit: Int) {
+        clickLatch.getAndUpdate { it or bit }
+        mouse.getAndUpdate { it.copy(buttons = it.buttons or bit) }
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -139,6 +162,17 @@ class PadConnection(
                             // Deltas are consumed: take them and zero them atomically.
                             val snapshot = mouse.getAndUpdate { it.consumed() }
                             send(MousePacket.encode(seq, snapshot, player, mouseBuf))
+                            // Release a tapped button only once the packet
+                            // carrying it has gone out, so the PC always sees
+                            // the press for at least one frame before the
+                            // release. Masking against what was actually sent
+                            // avoids dropping a tap that landed after the
+                            // snapshot was taken.
+                            val sent = clickLatch.get() and snapshot.buttons
+                            if (sent != 0) {
+                                clickLatch.getAndUpdate { it and sent.inv() }
+                                mouse.getAndUpdate { it.copy(buttons = it.buttons and sent.inv()) }
+                            }
                         }
                         delay(8) // 125 Hz
                     }
