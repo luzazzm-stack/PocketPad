@@ -7,6 +7,8 @@ public partial class App : System.Windows.Application
 
     private Mutex? _instanceMutex;
     private EventWaitHandle? _showEvent;
+    private Thread? _waiter;
+    private volatile bool _shuttingDown;
 
     protected override void OnStartup(System.Windows.StartupEventArgs e)
     {
@@ -31,25 +33,54 @@ public partial class App : System.Windows.Application
         _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
 
         var window = new MainWindow();
+        if (window.StartupFailed)
+        {
+            // The ports were taken; the window has already explained that and
+            // queued Shutdown(). Showing it, or starting the waiter, would only
+            // put UI on screen on the way back out.
+            return;
+        }
 
         // Waits forever, waking once per "please show yourself" signal.
-        var waiter = new Thread(() =>
+        _waiter = new Thread(() =>
         {
             while (true)
             {
                 try { _showEvent.WaitOne(); }
                 catch (ObjectDisposedException) { return; }
-                Dispatcher.Invoke(window.ShowFromSecondLaunch);
+
+                if (_shuttingDown) return;
+
+                // The dispatcher can begin shutting down between the signal and
+                // the call below — "Quit completely", or a startup bail-out. An
+                // Invoke against it then throws on this background thread, where
+                // nothing catches it, and an unhandled exception there takes the
+                // whole process down with a crash dialog instead of exiting.
+                if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished) return;
+                try
+                {
+                    Dispatcher.Invoke(window.ShowFromSecondLaunch);
+                }
+                catch (OperationCanceledException) { return; } // incl. TaskCanceledException
+                catch (InvalidOperationException) { return; }  // dispatcher or window already gone
             }
         })
         { IsBackground = true, Name = "PocketPad.ShowSignal" };
-        waiter.Start();
+        _waiter.Start();
 
         window.Show();
     }
 
     protected override void OnExit(System.Windows.ExitEventArgs e)
     {
+        // Wake the waiter and let it leave WaitOne() before the handle goes
+        // away. Disposing a wait handle that a thread is blocked on is
+        // documented as undefined behaviour and does not reliably surface as
+        // the ObjectDisposedException the loop is written to expect.
+        _shuttingDown = true;
+        try { _showEvent?.Set(); } catch (ObjectDisposedException) { /* already gone */ }
+        _waiter?.Join(TimeSpan.FromMilliseconds(250));
+
         _showEvent?.Dispose();
         _instanceMutex?.Dispose();
         base.OnExit(e);

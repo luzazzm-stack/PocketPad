@@ -27,6 +27,13 @@ public partial class MainWindow : Window
     private bool _reallyExit;
     private bool _shownTrayHint;
 
+    /// <summary>
+    /// Startup hit a fatal port clash, so <c>Shutdown()</c> is already queued and
+    /// this window must never be shown. Read by <see cref="App"/> on startup,
+    /// because a queued shutdown does not stop the caller from calling Show().
+    /// </summary>
+    public bool StartupFailed { get; private set; }
+
     public MainWindow()
     {
         InitializeComponent();
@@ -58,7 +65,14 @@ public partial class MainWindow : Window
                 "next to the clock.\n\nIf it isn't, another program is using " +
                 "network ports 46821/46822. Close it and reopen PocketPad.",
                 "PocketPad", MessageBoxButton.OK, MessageBoxImage.Information);
+            // Shutdown() only posts to the dispatcher, so control returns
+            // through this constructor to OnStartup, which would flash the
+            // window before the shutdown lands. Flag that for the caller and
+            // drop the tray icon here — ExitApp's cleanup never runs on this
+            // path, leaving a ghost icon until the user hovers over it.
             _reallyExit = true;
+            StartupFailed = true;
+            DisposeTray();
             Application.Current.Shutdown();
             return;
         }
@@ -267,11 +281,19 @@ public partial class MainWindow : Window
     /// <summary>The user double-clicked the desktop icon while we're running.</summary>
     public void ShowFromSecondLaunch() => RestoreFromTray();
 
+    /// <summary>Hide then release the tray icon; safe to call more than once.</summary>
+    private void DisposeTray()
+    {
+        if (_tray is null) return;
+        _tray.Visible = false; // hide before disposing, or the icon lingers until hover
+        _tray.Dispose();
+        _tray = null;
+    }
+
     private void ExitApp()
     {
         _reallyExit = true;
-        _tray!.Visible = false;
-        _tray.Dispose();
+        DisposeTray();
         _session?.Dispose();
         Application.Current.Shutdown();
     }

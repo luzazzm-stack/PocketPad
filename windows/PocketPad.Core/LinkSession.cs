@@ -57,15 +57,39 @@ public sealed class LinkSession : IDisposable
             throw new DriverMissingException(e);
         }
 
-        // Player 0's pad stays alive for the whole session so a game launched
-        // before the phone connects still finds a controller. Pads 1-3 are
-        // created when their phone joins and released when it leaves.
-        _pads[0] = _vigem.CreateXbox360Controller();
-        _pads[0]!.Connect();
-
         Token = RandomNumberGenerator.GetHexString(8, lowercase: true);
-        _control = new ControlServer(Token);
-        _udp = new UdpStateListener();
+
+        // Both listeners bind in their constructors, so either can throw
+        // SocketException on a port clash. A faulting constructor hands the
+        // caller no reference, so nothing downstream can ever release the
+        // driver handle or the connected pad — unwind them here instead of
+        // leaving a phantom controller attached until the process exits.
+        IXbox360Controller? pad0 = null;
+        ControlServer? control = null;
+        UdpStateListener? udp = null;
+        try
+        {
+            // Player 0's pad stays alive for the whole session so a game launched
+            // before the phone connects still finds a controller. Pads 1-3 are
+            // created when their phone joins and released when it leaves.
+            pad0 = _vigem.CreateXbox360Controller();
+            pad0.Connect();
+
+            control = new ControlServer(Token);
+            udp = new UdpStateListener();
+        }
+        catch
+        {
+            udp?.Dispose();
+            control?.Dispose();
+            try { pad0?.Disconnect(); } catch (InvalidOperationException) { /* never connected */ }
+            _vigem.Dispose();
+            throw;
+        }
+
+        _pads[0] = pad0;
+        _control = control;
+        _udp = udp;
 
         _control.ClientConnected += (player, name, ep) =>
         {

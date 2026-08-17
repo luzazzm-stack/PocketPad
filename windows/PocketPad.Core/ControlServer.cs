@@ -40,11 +40,16 @@ public sealed class ControlServer : IDisposable
     {
         _token = token;
         _listener = new TcpListener(IPAddress.Any, port);
+        // Bind here, not in RunAsync, so a port clash throws SocketException
+        // from the constructor exactly as UdpStateListener's does. While the
+        // bind was deferred, a taken TCP port left a fully constructed session
+        // showing a pairing QR that could never be answered, with the failure
+        // arriving later as a generic "network problem" box.
+        _listener.Start();
     }
 
     public async Task RunAsync(CancellationToken ct)
     {
-        _listener.Start();
         try
         {
             while (!ct.IsCancellationRequested)
