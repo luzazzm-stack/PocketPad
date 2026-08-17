@@ -2,6 +2,8 @@ package com.pocketpad.app.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -33,7 +36,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.PointerId
-import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -75,6 +77,11 @@ private fun maskOf(set: Set<PadControl>): Int {
  * diagonally, so "up" must not slip into a side direction.
  */
 private fun dpadDirAt(local: Offset, sizePx: Float): Dpad {
+    // Before the first layout pass the zone is Rect.Zero. The deadzone test
+    // below compares against sizePx * 0.14, which no non-negative hypot can be
+    // under at size 0, so without this guard an early touch would fall through
+    // to a real direction.
+    if (sizePx <= 0f) return Dpad.NEUTRAL
     val c = sizePx / 2f
     val dx = local.x - c
     val dy = local.y - c
@@ -126,15 +133,49 @@ fun GamepadScreen(
     var pressed by remember { mutableStateOf(emptySet<PadControl>()) }
     var dpad by remember { mutableStateOf(Dpad.NEUTRAL) }
 
+    // Leaving the pad (gear tap, mouse mode, back) cancels the input core
+    // mid-press while the sender loop keeps transmitting the last state at
+    // 125 Hz, which reads on the PC as a jammed button. Hand over an explicit
+    // neutral on the way out.
+    DisposableEffect(connection) {
+        onDispose {
+            pressed = emptySet()
+            dpad = Dpad.NEUTRAL
+            connection.state.set(PadState())
+        }
+    }
+
     Box(
         Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .onGloballyPositioned { boxOrigin = it.positionInRoot() }
             .pointerInput(settings.haptics) {
-                val slopPx = 14.dp.toPx()      // finger-sized forgiveness on buttons
+                val rectSlopPx = 14.dp.toPx()  // forgiveness on the fixed-size controls
                 val dpadSlopPx = 22.dp.toPx()  // extra forgiving for entering the cross
                 var dpadPointer: PointerId? = null
+
+                // A touch sitting on a real button belongs to that button, never
+                // to the d-pad. The layout editor can drag the cross on top of
+                // LB / BACK / START, and a captured pointer is excluded from the
+                // button pass below — so without this the overlapped button
+                // becomes unpressable and emits a phantom direction instead.
+                // The cross has area to spare; a swallowed button has none.
+                fun overButton(p: Offset) = zones.any { (ctl, rect) ->
+                    if (ctl in FACE_CONTROLS) {
+                        (p - rect.center).getDistance() <= rect.width / 2f
+                    } else {
+                        rect.contains(p)
+                    }
+                }
+
+                // A restart — haptics toggled, or ACTION_CANCEL from a
+                // notification-shade pull — drops every held finger without a
+                // corresponding release, so start from an explicit neutral
+                // rather than inheriting stale pressed/dpad values.
+                pressed = emptySet()
+                dpad = Dpad.NEUTRAL
+                connection.state.set(PadState())
 
                 awaitPointerEventScope {
                     while (true) {
@@ -146,7 +187,10 @@ fun GamepadScreen(
                         // lift-off, wherever it rolls. Others never steal it.
                         if (dpadPointer == null || down.none { it.id == dpadPointer }) {
                             dpadPointer = down.firstOrNull {
-                                dpadZone.inflate(dpadSlopPx).contains(boxOrigin + it.position)
+                                val p = boxOrigin + it.position
+                                dpadZone.width > 0f &&
+                                    dpadZone.inflate(dpadSlopPx).contains(p) &&
+                                    !overButton(p)
                             }?.id
                         }
                         val dpadTouch = down.firstOrNull { it.id == dpadPointer }
@@ -156,7 +200,10 @@ fun GamepadScreen(
 
                         // ---- buttons: every finger vs every zone ----
                         // A touch within (radius + slop) of a circle presses it,
-                        // so one finger between two buttons presses both.
+                        // so one finger between two buttons presses both. The
+                        // face slop is a fraction of the button rather than a
+                        // constant, so that overlap survives the size slider;
+                        // the fixed-size controls keep a constant slop.
                         val newPressed = buildSet {
                             for ((ctl, rect) in zones) {
                                 val isRound = ctl in FACE_CONTROLS
@@ -164,9 +211,10 @@ fun GamepadScreen(
                                     if (ch.id == dpadPointer) return@any false
                                     val p = boxOrigin + ch.position
                                     if (isRound) {
-                                        (p - rect.center).getDistance() <= rect.width / 2f + slopPx
+                                        (p - rect.center).getDistance() <=
+                                            rect.width * (0.5f + FACE_SLOP_FRACTION)
                                     } else {
-                                        rect.inflate(slopPx).contains(p)
+                                        rect.inflate(rectSlopPx).contains(p)
                                     }
                                 }
                                 if (hit) add(ctl)
@@ -265,6 +313,21 @@ fun GamepadScreen(
 }
 
 private val FACE_CONTROLS = setOf(PadControl.A, PadControl.B, PadControl.X, PadControl.Y)
+
+/**
+ * How far past its drawn edge a face button still answers, as a fraction of the
+ * button's width — so it tracks the 0.7–1.5x size slider instead of being a
+ * fixed dp that only suits one setting.
+ *
+ * The four buttons form a diamond with adjacent centres `width * sqrt(2)` apart,
+ * so two hit circles of radius `width * (0.5 + f)` overlap only while
+ * `f > (sqrt(2) - 1) / 2 ≈ 0.207` — that overlap lens is what lets one thumb
+ * press both buttons for Tekken's two-button moves. The diamond's centre sits
+ * `width` from every button, so staying under `f = 0.5` keeps a middle touch
+ * from pressing all four at once. 0.28 sits between the two: a lens about
+ * 0.15 of a button wide, at every size.
+ */
+private const val FACE_SLOP_FRACTION = 0.28f
 
 // ============================== d-pad ==============================
 
@@ -411,11 +474,17 @@ private fun GearChip(onClick: () -> Unit) {
             .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {
-                        val down = awaitPointerEvent().changes.firstOrNull { it.changedToDown() }
-                        if (down != null) {
-                            down.consume()
-                            onClick()
-                        }
+                        // Fire on release inside the chip, not on touch-down: a
+                        // thumb brushing the top bar mid-game would otherwise
+                        // swap the pad for Settings with no way to back out.
+                        val down = awaitFirstDown()
+                        down.consume()
+                        val up = waitForUpOrCancellation() ?: continue
+                        up.consume()
+                        val p = up.position
+                        if (p.x >= 0f && p.y >= 0f &&
+                            p.x <= size.width && p.y <= size.height
+                        ) onClick()
                     }
                 }
             },
