@@ -65,25 +65,29 @@ Slide your left thumb on the cross — diagonals happen automatically where the
 arms meet. The green number at the top is your live delay; under 20 ms feels
 instant.
 
-**D-pad or stick.** The small **D-PAD / STICK** chip just above the left control
-switches it between the cross and an analog thumbstick, and back again. The
-cross sends the eight directions; the stick sends a real analog left stick, so
-games that want gradual movement — walking slowly, aiming, driving — get it.
-Your choice is remembered.
+**Two sticks and a cross.** The left stick moves, the right stick looks — the
+pair is what makes a 3D game playable, and they work at the same time, so you
+can walk and turn together. The cross sits alongside them for hotbars and
+weapon wheels rather than replacing either one. Both sticks are real analog:
+the further you push, the faster you go.
 
-| Control | In menus | In Tekken 7 |
-|---|---|---|
-| ✚ cross / stick | Move around | Walk & jump · hold away to block |
-| 🔵 X | — | Left punch |
-| 🟡 Y | — | Right punch |
-| 🟢 A | Choose / OK | Left kick |
-| 🔴 B | Go back | Right kick |
-| LB | — | Throw |
-| RB | — | Rage Art |
-| LT | — | Left trigger |
-| RT | — | Right trigger |
-| START | OK / skip videos | Pause |
-| BACK | Go back | Change side |
+| Control | In menus | In a shooter | In Tekken 7 |
+|---|---|---|---|
+| L stick | Move around | Walk & strafe | Walk & jump · hold away to block |
+| R stick | — | Look & aim | — |
+| L3 | — | Sprint | — |
+| R3 | — | Melee / crouch | — |
+| ✚ cross | Move around | Hotbar / weapon wheel | Walk & jump · hold away to block |
+| 🔵 X | — | Reload | Left punch |
+| 🟡 Y | — | Swap weapon | Right punch |
+| 🟢 A | Choose / OK | Jump | Left kick |
+| 🔴 B | Go back | Crouch | Right kick |
+| LB | — | Grenade | Throw |
+| RB | — | Equipment | Rage Art |
+| LT | — | Aim | Left trigger |
+| RT | — | Fire | Right trigger |
+| START | OK / skip videos | Pause | Pause |
+| BACK | Go back | Scoreboard | Change side |
 
 ## Play with friends
 
@@ -109,9 +113,11 @@ Tap the **⚙ gear** on the gamepad:
 **Vibrate on press** has a 0–100% power slider — it buzzes a preview as you adjust.
 
 **Customize layout** lets you drag **every** control anywhere your thumbs
-prefer — the cross/stick, the four face buttons, LB, RB, LT, RT, BACK and START.
-Tap one to select it, then the slider resizes just that control. Saved
-permanently:
+prefer — both sticks, the cross, the four face buttons, LB, RB, LT, RT, L3, R3,
+BACK and START. Tap one to select it, then the slider resizes just that control
+and **Hide this** takes it off the pad — a fighting game wants no right stick, a
+shooter wants no cross, and a hidden control stays dimmed here so you can bring
+it back. Saved permanently:
 
 ![The layout editor with draggable outlined clusters and size sliders](docs/images/phone-layout-editor.png)
 
