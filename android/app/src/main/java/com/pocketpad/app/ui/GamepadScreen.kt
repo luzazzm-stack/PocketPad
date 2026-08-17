@@ -181,7 +181,7 @@ fun GamepadScreen(
             pressed = emptySet()
             dpad = Dpad.NEUTRAL
             stick = Offset.Zero
-            connection.state.set(PadState())
+            connection.setPadState(PadState())
         }
     }
 
@@ -224,7 +224,7 @@ fun GamepadScreen(
                 pressed = emptySet()
                 dpad = Dpad.NEUTRAL
                 stick = Offset.Zero
-                connection.state.set(PadState())
+                connection.setPadState(PadState())
 
                 awaitPointerEventScope {
                     while (true) {
@@ -285,7 +285,7 @@ fun GamepadScreen(
                             pressed = newPressed
                             dpad = newDpad
                             stick = newStick
-                            connection.state.set(
+                            connection.setPadState(
                                 PadState(
                                     buttons = maskOf(newPressed),
                                     dpad = newDpad,

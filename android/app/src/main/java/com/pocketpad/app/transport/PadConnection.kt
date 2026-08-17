@@ -1,5 +1,6 @@
 package com.pocketpad.app.transport
 
+import com.pocketpad.app.protocol.Dpad
 import com.pocketpad.app.protocol.MousePacket
 import com.pocketpad.app.protocol.MouseState
 import com.pocketpad.app.protocol.PadState
@@ -46,8 +47,8 @@ class PadConnection(
     /** Which kind of packet the sender is currently emitting. */
     enum class Mode { PAD, MOUSE }
 
-    /** UI writes the latest full state here; the sender loop reads it. */
-    val state = AtomicReference(PadState())
+    /** Latest full pad state. Private so every write goes through [setPadState]. */
+    private val state = AtomicReference(PadState())
 
     /** Current send mode; flip with [setMode] so the handover stays clean. */
     val mode = AtomicReference(Mode.PAD)
@@ -62,12 +63,39 @@ class PadConnection(
      */
     private val clickLatch = AtomicInteger(0)
 
+    /**
+     * Presses seen since the last pad packet went out.
+     *
+     * The sender samples the state every 8 ms, so a press whose down and up
+     * both land inside one sampling gap is never transmitted at all — the
+     * phone shows the button lit and the PC sees nothing. That is easy to hit
+     * with a quick tap, and easier still whenever the UI thread stalls and
+     * delivers the two pointer events back to back. These latches hold such a
+     * press into exactly one packet, then clear.
+     */
+    private val buttonLatch = AtomicInteger(0)
+    private val dpadLatch = AtomicReference(Dpad.NEUTRAL)
+
     fun setMode(m: Mode) {
         // Drop everything held so nothing sticks down across the switch.
         state.set(PadState())
         mouse.set(MouseState())
         clickLatch.set(0)
+        buttonLatch.set(0)
+        dpadLatch.set(Dpad.NEUTRAL)
         mode.set(m)
+    }
+
+    /**
+     * Publish the pad state. Anything newly pressed is latched so it survives
+     * at least one packet, even if the finger has already lifted by the time
+     * the sender next looks.
+     */
+    fun setPadState(s: PadState) {
+        val prev = state.getAndSet(s)
+        val newly = s.buttons and prev.buttons.inv()
+        if (newly != 0) buttonLatch.getAndUpdate { it or newly }
+        if (s.dpad != Dpad.NEUTRAL && s.dpad != prev.dpad) dpadLatch.set(s.dpad)
     }
 
     /** Accumulate pointer movement (pixels) until the next packet goes out. */
@@ -157,7 +185,18 @@ class PadConnection(
                         }
 
                         if (m == Mode.PAD) {
-                            send(StatePacket.encode(seq, state.get(), player, padBuf))
+                            // Fold in anything pressed since the last packet so
+                            // a tap shorter than the sampling gap still lands.
+                            val snap = state.get()
+                            val bl = buttonLatch.getAndSet(0)
+                            val dl = dpadLatch.getAndSet(Dpad.NEUTRAL)
+                            val outgoing =
+                                if (bl == 0 && dl == Dpad.NEUTRAL) snap
+                                else snap.copy(
+                                    buttons = snap.buttons or bl,
+                                    dpad = if (snap.dpad != Dpad.NEUTRAL) snap.dpad else dl,
+                                )
+                            send(StatePacket.encode(seq, outgoing, player, padBuf))
                         } else {
                             // Deltas are consumed: take them and zero them atomically.
                             val snapshot = mouse.getAndUpdate { it.consumed() }
