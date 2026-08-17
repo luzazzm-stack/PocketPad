@@ -154,5 +154,6 @@ dotnet test              ./gradlew test
 ```
 
 Requires .NET 8 SDK + ViGEmBus driver (Windows) and JDK 17 + Android SDK 35
-(Android). The full illustrated manual lives at
-[`docs/manual.html`](docs/manual.html) and ships inside both apps.
+(Android). Setting up a fresh dev machine, building the installer, and shipping
+updates: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). The full illustrated
+manual lives at [`docs/manual.html`](docs/manual.html) and ships inside both apps.
