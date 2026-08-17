@@ -12,14 +12,33 @@ android {
         applicationId = "com.pocketpad.app"
         minSdk = 23 // Android 6.0
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = 2
+        versionName = "0.4"
+    }
+
+    signingConfigs {
+        create("release") {
+            // Checked in on purpose. Without one stable key, every update fails
+            // to install over the previous build with INSTALL_FAILED_UPDATE_
+            // INCOMPATIBLE and the user has to uninstall, losing their layout
+            // and settings. For a private hobby repo that trade is worth it.
+            storeFile = rootProject.file("../keystore/pocketpad.jks")
+            storePassword = "pocketpad"
+            keyAlias = "pocketpad"
+            keyPassword = "pocketpad"
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
+        }
+        debug {
+            // Same key as release, so a development build installs straight over
+            // a released one instead of demanding an uninstall.
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
