@@ -3,15 +3,18 @@ package com.pocketpad.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -27,18 +30,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pocketpad.app.protocol.Dpad
+import com.pocketpad.app.settings.PadElement
 import com.pocketpad.app.settings.PadLayout
 
 /**
- * Layout customizer: the two clusters render exactly as they do in play,
- * but dragging moves them and the sliders resize them. Nothing is sent to
- * the PC from this screen.
+ * Layout customizer: every control renders exactly as it does in play, and all
+ * of them can be dragged. Tapping one selects it so the size slider applies to
+ * it — one slider for whichever control is selected, rather than eight.
+ * Nothing is sent to the PC from this screen.
  */
 @Composable
 fun LayoutEditScreen(
@@ -47,7 +53,7 @@ fun LayoutEditScreen(
     onCancel: () -> Unit,
 ) {
     var lay by remember { mutableStateOf(initial) }
-    val density = LocalDensity.current
+    var selected by remember { mutableStateOf(PadElement.DPAD) }
 
     Box(
         Modifier
@@ -55,64 +61,61 @@ fun LayoutEditScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         Text(
-            "Drag a cluster to move it",
+            "Drag any control to move it · tap one to select, then resize it below",
             color = Color(0xFF6B7392),
             fontSize = 12.sp,
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp),
         )
 
-        // ---- draggable d-pad ----
-        Box(
-            Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = 30.dp)
-                .offset(lay.dpadX.dp, lay.dpadY.dp)
-                .pointerInput(Unit) {
-                    detectDragGestures { change, drag ->
-                        change.consume()
-                        with(density) {
-                            lay = lay.copy(
-                                dpadX = (lay.dpadX + drag.x.toDp().value).coerceIn(-20f, 200f),
-                                dpadY = (lay.dpadY + drag.y.toDp().value).coerceIn(-90f, 90f),
-                            )
+        PAD_SPECS.keys.forEach { element ->
+            val l = lay.of(element)
+            Editable(
+                element = element,
+                lay = lay,
+                selected = selected == element,
+                onSelect = { selected = element },
+                onDrag = { dx, dy ->
+                    lay = lay.with(element) { it.dragged(specOf(element), dx, dy) }
+                },
+            ) {
+                when (element) {
+                    PadElement.DPAD ->
+                        if (lay.stickMode) AnalogStick(size = 186.dp * l.scale)
+                        else DpadCross(size = 186.dp * l.scale, current = Dpad.NEUTRAL)
+
+                    PadElement.FACE -> FaceCluster(buttonSize = 62.dp * l.scale)
+
+                    // Shown as a plain chip here: in the editor it is something
+                    // to place, not something to switch.
+                    PadElement.TOGGLE -> DepthButton(
+                        if (lay.stickMode) "STICK" else "D-PAD",
+                        pressed = false,
+                        Modifier.size(64.dp * l.scale, 24.dp * l.scale),
+                        RoundedCornerShape(12.dp),
+                    )
+
+                    else -> {
+                        val w = when (element) {
+                            PadElement.LB, PadElement.RB -> 88.dp
+                            PadElement.LT, PadElement.RT -> 78.dp
+                            else -> 86.dp
                         }
+                        val h = if (element == PadElement.BACK || element == PadElement.START) 36.dp else 40.dp
+                        val shape =
+                            if (element == PadElement.BACK || element == PadElement.START)
+                                RoundedCornerShape(50) else RoundedCornerShape(11.dp)
+                        DepthButton(
+                            specOf(element).label,
+                            pressed = false,
+                            Modifier.size(w * l.scale, h * l.scale),
+                            shape,
+                        )
                     }
                 }
-                .border(1.5.dp, Color(0xFF7AA2F7), RoundedCornerShape(20.dp))
-                .padding(6.dp)
-        ) {
-            DpadCross(
-                size = 186.dp * lay.dpadScale,
-                current = Dpad.NEUTRAL,
-            )
+            }
         }
 
-        // ---- draggable face cluster ----
-        Box(
-            Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 30.dp)
-                .offset(lay.faceX.dp, lay.faceY.dp)
-                .pointerInput(Unit) {
-                    detectDragGestures { change, drag ->
-                        change.consume()
-                        with(density) {
-                            lay = lay.copy(
-                                faceX = (lay.faceX + drag.x.toDp().value).coerceIn(-200f, 20f),
-                                faceY = (lay.faceY + drag.y.toDp().value).coerceIn(-90f, 90f),
-                            )
-                        }
-                    }
-                }
-                .border(1.5.dp, Color(0xFF7AA2F7), RoundedCornerShape(20.dp))
-                .padding(6.dp)
-        ) {
-            FaceCluster(
-                buttonSize = 62.dp * lay.faceScale,
-            )
-        }
-
-        // ---- bottom bar: sliders + actions ----
+        // ---- bottom bar: size of the selected control + actions ----
         Column(
             Modifier
                 .align(Alignment.BottomCenter)
@@ -121,21 +124,17 @@ fun LayoutEditScreen(
                 .padding(horizontal = 34.dp, vertical = 8.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("D-pad size", color = Color(0xFF98A2C0), fontSize = 11.sp,
-                    modifier = Modifier.width(88.dp))
-                Slider(
-                    value = lay.dpadScale,
-                    onValueChange = { lay = lay.copy(dpadScale = it) },
-                    valueRange = 0.7f..1.5f,
-                    colors = sliderColors(),
-                    modifier = Modifier.weight(1f),
+                Text(
+                    "${specOf(selected).label} size",
+                    color = Color(0xFF7AA2F7),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.width(120.dp),
                 )
-                Text("Buttons size", color = Color(0xFF98A2C0), fontSize = 11.sp,
-                    modifier = Modifier.width(96.dp).padding(start = 16.dp))
                 Slider(
-                    value = lay.faceScale,
-                    onValueChange = { lay = lay.copy(faceScale = it) },
-                    valueRange = 0.7f..1.5f,
+                    value = lay.of(selected).scale,
+                    onValueChange = { v -> lay = lay.with(selected) { it.copy(scale = v) } },
+                    valueRange = PadLayout.MIN_SCALE..PadLayout.MAX_SCALE,
                     colors = sliderColors(),
                     modifier = Modifier.weight(1f),
                 )
@@ -144,15 +143,61 @@ fun LayoutEditScreen(
                 Modifier.fillMaxWidth().padding(top = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                BarButton(
+                    if (lay.stickMode) "Left: STICK" else "Left: D-PAD",
+                    Color(0xFF2C3557), Color(0xFF9DB4F0), Modifier.width(120.dp),
+                ) { lay = lay.copy(stickMode = !lay.stickMode) }
                 BarButton("Save layout", Color(0xFF7AA2F7), Color(0xFF14151D),
                     Modifier.weight(1f)) { onSave(lay) }
                 BarButton("Reset", Color(0xFF2A2E3F), Color(0xFF98A2C0),
-                    Modifier.width(90.dp)) { lay = PadLayout() }
+                    Modifier.width(84.dp)) { lay = PadLayout(stickMode = lay.stickMode) }
                 BarButton("Cancel", Color(0xFF2A2E3F), Color(0xFF98A2C0),
-                    Modifier.width(90.dp)) { onCancel() }
+                    Modifier.width(84.dp)) { onCancel() }
             }
         }
     }
+}
+
+/**
+ * Wraps one control so it can be dragged and selected. Touch-down selects —
+ * this screen sends nothing to the PC, so there is no cost to acting early,
+ * and it makes the slider follow whatever the thumb just grabbed.
+ */
+@Composable
+private fun BoxScope.Editable(
+    element: PadElement,
+    lay: PadLayout,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    onDrag: (dx: Float, dy: Float) -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val spec = specOf(element)
+    Box(
+        Modifier
+            .align(spec.align)
+            .placeElement(spec, lay.of(element))
+            .pointerInput(element) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    onSelect()
+                    drag(down.id) { change ->
+                        // Read the delta BEFORE consuming: positionChange()
+                        // reports Offset.Zero once a change is consumed, so
+                        // consuming first made every drag a no-op.
+                        val d = change.positionChange()
+                        change.consume()
+                        onDrag(d.x.toDp().value, d.y.toDp().value)
+                    }
+                }
+            }
+            .border(
+                if (selected) 2.dp else 1.dp,
+                if (selected) Color(0xFF7AA2F7) else Color(0xFF343A54),
+                RoundedCornerShape(14.dp),
+            )
+            .padding(5.dp)
+    ) { content() }
 }
 
 @Composable

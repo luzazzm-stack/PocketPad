@@ -65,15 +65,23 @@ Slide your left thumb on the cross — diagonals happen automatically where the
 arms meet. The green number at the top is your live delay; under 20 ms feels
 instant.
 
+**D-pad or stick.** The small **D-PAD / STICK** chip just above the left control
+switches it between the cross and an analog thumbstick, and back again. The
+cross sends the eight directions; the stick sends a real analog left stick, so
+games that want gradual movement — walking slowly, aiming, driving — get it.
+Your choice is remembered.
+
 | Control | In menus | In Tekken 7 |
 |---|---|---|
-| ✚ cross | Move around | Walk & jump · hold away to block |
+| ✚ cross / stick | Move around | Walk & jump · hold away to block |
 | 🔵 X | — | Left punch |
 | 🟡 Y | — | Right punch |
 | 🟢 A | Choose / OK | Left kick |
 | 🔴 B | Go back | Right kick |
 | LB | — | Throw |
 | RB | — | Rage Art |
+| LT | — | Left trigger |
+| RT | — | Right trigger |
 | START | OK / skip videos | Pause |
 | BACK | Go back | Change side |
 
@@ -100,8 +108,10 @@ Tap the **⚙ gear** on the gamepad:
 
 **Vibrate on press** has a 0–100% power slider — it buzzes a preview as you adjust.
 
-**Customize layout** lets you drag the cross and the buttons anywhere your
-thumbs prefer, and resize them — saved permanently:
+**Customize layout** lets you drag **every** control anywhere your thumbs
+prefer — the cross/stick, the four face buttons, LB, RB, LT, RT, BACK and START.
+Tap one to select it, then the slider resizes just that control. Saved
+permanently:
 
 ![The layout editor with draggable outlined clusters and size sliders](docs/images/phone-layout-editor.png)
 
