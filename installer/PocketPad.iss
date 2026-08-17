@@ -1,4 +1,4 @@
-﻿; PocketPad for PC â€” one-click installer
+; PocketPad for PC — one-click installer
 ; Build with installer\build-installer.ps1 (publishes the app, then compiles this).
 
 #define AppName "PocketPad for PC"
@@ -18,7 +18,7 @@ OutputBaseFilename=PocketPad-Setup
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-; as close to one-click as it gets: no directory page, no "ready?" page â€”
+; as close to one-click as it gets: no directory page, no "ready?" page —
 ; run it, click Install, done
 DisableProgramGroupPage=yes
 DisableDirPage=yes
@@ -26,7 +26,7 @@ DisableReadyPage=yes
 DisableWelcomePage=no
 ; driver + firewall need admin
 PrivilegesRequired=admin
-; 'x64compatible' needs Inno Setup 6.3 or newer â€” before that the identifier
+; 'x64compatible' needs Inno Setup 6.3 or newer — before that the identifier
 ; was 'x64', and 6.0-6.2 rejects this with an opaque "[Setup] section directive
 ; is invalid". build-installer.ps1 enforces the compiler version.
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -49,7 +49,7 @@ Name: "{group}\PocketPad Manual"; Filename: "{app}\manual.html"
 ; Controller driver. The redist is an Advanced Installer bootstrapper:
 ; /exenoui suppresses its own wizard, /qn the MSI UI, /norestart stops it
 ; rebooting the machine mid-install. Unswitched it opened a second, separate
-; wizard â€” sometimes behind the setup window â€” while our progress bar sat on
+; wizard — sometimes behind the setup window — while our progress bar sat on
 ; "Installing the controller driver", and a user who cancelled that got a
 ; silently driver-less install.
 ; Run it unconditionally and let the bundle decide: it detects an up-to-date
@@ -72,7 +72,7 @@ Filename: "{sys}\netsh.exe"; \
 ; runasoriginaluser: setup runs elevated, and without this the app inherits the
 ; admin token for its entire first session. Clipboard and drag-drop then behave
 ; differently than on every later launch, and UIPI blocks a normal-privilege
-; second launch from raising the elevated window â€” so the desktop icon looks
+; second launch from raising the elevated window — so the desktop icon looks
 ; like it does nothing.
 Filename: "{app}\{#AppExe}"; Description: "Start {#AppName} now"; \
   Flags: postinstall nowait skipifsilent runasoriginaluser
