@@ -26,7 +26,15 @@ DisableReadyPage=yes
 DisableWelcomePage=no
 ; driver + firewall need admin
 PrivilegesRequired=admin
+; 'x64compatible' needs Inno Setup 6.3 or newer — before that the identifier
+; was 'x64', and 6.0-6.2 rejects this with an opaque "[Setup] section directive
+; is invalid". build-installer.ps1 enforces the compiler version.
 ArchitecturesInstallIn64BitMode=x64compatible
+; The app hides to the tray on close, so "already running" is the normal state
+; during an upgrade. Without this Inno cannot replace the exe or its runtime
+; DLLs, and either schedules a reboot-time replace or leaves the old binary in
+; place while reporting success. Must match MutexName in App.xaml.cs.
+AppMutex=PocketPadForPC_SingleInstance
 
 [Files]
 Source: "payload\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
@@ -38,24 +46,38 @@ Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
 Name: "{group}\PocketPad Manual"; Filename: "{app}\manual.html"
 
 [Run]
-; Controller driver — only when it isn't installed yet.
+; Controller driver. The redist is an Advanced Installer bootstrapper:
+; /exenoui suppresses its own wizard, /qn the MSI UI, /norestart stops it
+; rebooting the machine mid-install. Unswitched it opened a second, separate
+; wizard — sometimes behind the setup window — while our progress bar sat on
+; "Installing the controller driver", and a user who cancelled that got a
+; silently driver-less install.
+; Run it unconditionally and let the bundle decide: it detects an up-to-date
+; driver and skips itself. The old RegKeyExists probe treated a leftover
+; service key, or a driver older than the bundled one, as "already installed".
 Filename: "{tmp}\ViGEmBus_Setup.exe"; \
-  StatusMsg: "Installing the controller driver (one time)..."; \
-  Check: not ViGEmInstalled; Flags: waituntilterminated
-; Let the phone reach the app through Windows Firewall.
+  Parameters: "/exenoui /qn /norestart"; \
+  StatusMsg: "Checking the controller driver..."; \
+  Flags: runhidden waituntilterminated
+; Let the phone reach the app through Windows Firewall. Delete before adding:
+; netsh does not deduplicate, so without this every upgrade leaves another
+; identical inbound rule behind. Deleting a rule that isn't there exits
+; non-zero, which Inno ignores for [Run] entries.
+Filename: "{sys}\netsh.exe"; \
+  Parameters: "advfirewall firewall delete rule name=""PocketPad for PC"""; \
+  StatusMsg: "Allowing PocketPad through the firewall..."; Flags: runhidden waituntilterminated
 Filename: "{sys}\netsh.exe"; \
   Parameters: "advfirewall firewall add rule name=""PocketPad for PC"" dir=in action=allow program=""{app}\{#AppExe}"" enable=yes"; \
   StatusMsg: "Allowing PocketPad through the firewall..."; Flags: runhidden waituntilterminated
+; runasoriginaluser: setup runs elevated, and without this the app inherits the
+; admin token for its entire first session. Clipboard and drag-drop then behave
+; differently than on every later launch, and UIPI blocks a normal-privilege
+; second launch from raising the elevated window — so the desktop icon looks
+; like it does nothing.
 Filename: "{app}\{#AppExe}"; Description: "Start {#AppName} now"; \
-  Flags: postinstall nowait skipifsilent
+  Flags: postinstall nowait skipifsilent runasoriginaluser
 
 [UninstallRun]
 Filename: "{sys}\netsh.exe"; \
   Parameters: "advfirewall firewall delete rule name=""PocketPad for PC"""; \
   Flags: runhidden waituntilterminated; RunOnceId: "DelFwRule"
-
-[Code]
-function ViGEmInstalled: Boolean;
-begin
-  Result := RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\ViGEmBus');
-end;
