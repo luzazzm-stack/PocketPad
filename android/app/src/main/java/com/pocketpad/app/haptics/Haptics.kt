@@ -8,10 +8,9 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.runtime.staticCompositionLocalOf
-import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Direct vibrator access for button ticks.
@@ -48,17 +47,21 @@ class Haptics(context: Context) {
     // corePoolSize 0 with a keep-alive, not newSingleThreadExecutor: that keeps
     // its worker alive for the life of the process, and Haptics is built per
     // Activity, so every restart would strand another idle thread.
+    //
+    // The queue is small and bounded, and overflow is DISCARDED rather than
+    // thrown: a burst of presses should each be felt, a flood must not pile up
+    // seconds of buzzing behind the player, and execute() must never throw
+    // back into the input loop.
     private val motorThread = ThreadPoolExecutor(
-        0, 1, 15L, TimeUnit.SECONDS, LinkedBlockingQueue(),
-    ) { r ->
-        Thread(r, "PocketPad.Haptics").apply {
-            isDaemon = true
-            priority = Thread.MIN_PRIORITY
-        }
-    }
-
-    /** One tick in flight is enough; the motor cannot buzz twice at once. */
-    private val queued = AtomicBoolean(false)
+        0, 1, 15L, TimeUnit.SECONDS, ArrayBlockingQueue(4),
+        { r ->
+            Thread(r, "PocketPad.Haptics").apply {
+                isDaemon = true
+                priority = Thread.MIN_PRIORITY
+            }
+        },
+        ThreadPoolExecutor.DiscardPolicy(),
+    )
 
     /** One short tick — a button registered. Returns immediately. */
     fun tick() {
@@ -66,27 +69,33 @@ class Haptics(context: Context) {
         val v = vibrator ?: return
         val p = percent.coerceIn(0, 100)
         if (p == 0) return // 0% = silent
-        if (!queued.compareAndSet(false, true)) return
+        // No "one in flight" guard here. There used to be one, and it meant a
+        // button pressed while the d-pad was still buzzing was silently
+        // dropped — so on a real pad, where the left thumb is always on the
+        // cross, only the cross ever seemed to vibrate.
         motorThread.execute {
             try {
                 buzz(v, p)
             } catch (_: Exception) {
                 // A vibrator can vanish mid-session (OEM power saving); never
                 // let that surface as a crash on a background thread.
-            } finally {
-                queued.set(false)
             }
         }
     }
 
     private fun buzz(v: Vibrator, p: Int) {
 
-        // The percentage drives BOTH duration (10–150 ms) and amplitude
+        // The percentage drives BOTH duration (12–55 ms) and amplitude
         // (1–255). Hand-built one-shots, not predefined effects: fallback
         // synthesis scrambles level ordering, and many motors (the realme
         // test device included) ignore amplitude — there, duration alone
         // carries the strength.
-        val durationMs = 10L + (140L * p) / 100L
+        //
+        // The old range topped out at 150 ms, which is longer than the gap
+        // between two quick presses: each new vibrate() cancels and restarts
+        // the motor, so presses smeared into one continuous rumble instead of
+        // separate ticks. A controller tick wants tens of milliseconds.
+        val durationMs = 12L + (43L * p) / 100L
         val amplitude = ((255 * p) / 100).coerceIn(1, 255)
         val gameAttrs = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_GAME)
