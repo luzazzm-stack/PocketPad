@@ -12,8 +12,8 @@ android {
         applicationId = "com.pocketpad.app"
         minSdk = 23 // Android 6.0
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.5"
+        versionCode = 4
+        versionName = "0.6"
     }
 
     signingConfigs {
@@ -76,4 +76,8 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
     testImplementation("junit:junit:4.13.2")
+    // The android.jar used by unit tests stubs org.json — every method throws
+    // "not mocked". PadLayout stores its blob as JSON, so its tests need the
+    // real implementation on the test classpath.
+    testImplementation("org.json:json:20240303")
 }

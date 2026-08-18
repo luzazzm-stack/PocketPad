@@ -49,33 +49,63 @@ data class PadLayout(
     companion object {
         const val MIN_SCALE = 0.5f
         const val MAX_SCALE = 1.6f
-        private const val VERSION = 3
+        private const val VERSION = 4
 
         /**
-         * Starting size per control. A full 12-control pad has to fit a phone in
-         * landscape, so the cross and the face cluster start smaller than they
-         * do as the only control on their side.
+         * Starting size per control, chosen so a full pad fits the shortest
+         * landscape phone this supports (360 dp tall). See PAD_SPECS for the
+         * column arithmetic these numbers satisfy — raising any of them
+         * overlaps the column it belongs to on a small screen.
          */
         private val DEFAULT_SCALE = mapOf(
-            PadElement.DPAD to 0.62f,
-            PadElement.FACE to 0.82f,
+            PadElement.DPAD to 0.58f,
+            PadElement.FACE to 0.75f,
+            PadElement.LSTICK to 0.88f,
+            PadElement.RSTICK to 0.88f,
         )
 
-        fun defaultFor(e: PadElement) = ElementLayout(scale = DEFAULT_SCALE[e] ?: 1f)
+        /**
+         * Stick clicks are niche — most games never need them, and on a phone
+         * screen every control costs room. They start hidden; the layout
+         * editor's Show button brings either back.
+         */
+        private val DEFAULT_HIDDEN = setOf(PadElement.L3, PadElement.R3)
+
+        fun defaultFor(e: PadElement) = ElementLayout(
+            scale = DEFAULT_SCALE[e] ?: 1f,
+            visible = e !in DEFAULT_HIDDEN,
+        )
+
+        /**
+         * The oldest schema [parseCurrent] can read. v3 introduced the element
+         * map with per-control visibility and v4 changed nothing about the
+         * format — only the default anchors moved — so a v3 blob parses
+         * cleanly. Anything older described a pad with one left control and no
+         * right stick, and cannot be translated.
+         *
+         * Keep this as its own constant: tying the decision to VERSION made
+         * "silently wipe every saved layout" the automatic consequence of any
+         * future version bump.
+         */
+        private const val OLDEST_READABLE = 3
 
         fun fromJson(s: String?): PadLayout {
             if (s.isNullOrBlank()) return PadLayout()
             return runCatching {
                 val o = JSONObject(s)
+                val v = o.optInt("v", 1)
                 when {
-                    o.optInt("v", 1) >= 3 -> parseV3(o)
-                    o.optInt("v", 1) == 2 -> parseV2(o)
-                    else -> parseV1(o)
+                    v in OLDEST_READABLE..VERSION -> parseCurrent(o)
+                    // Written by a newer build (sideload, then downgrade).
+                    // Reading it would drop the keys this build does not know
+                    // and rewrite the blob lossily on the next save.
+                    v > VERSION -> PadLayout()
+                    else -> parseLegacy()
                 }
             }.getOrDefault(PadLayout())
         }
 
-        private fun readElements(o: JSONObject, withVisibility: Boolean): MutableMap<PadElement, ElementLayout> {
+        private fun parseCurrent(o: JSONObject): PadLayout {
             val els = o.optJSONObject("els") ?: JSONObject()
             val map = mutableMapOf<PadElement, ElementLayout>()
             val keys = els.keys()
@@ -87,47 +117,24 @@ data class PadLayout(
                     x = j.optDouble("x", 0.0).toFloat(),
                     y = j.optDouble("y", 0.0).toFloat(),
                     scale = j.optDouble("s", 1.0).toFloat().coerceIn(MIN_SCALE, MAX_SCALE),
-                    visible = if (withVisibility) j.optBoolean("on", true) else true,
+                    visible = j.optBoolean("on", true),
                 )
             }
-            return map
-        }
-
-        private fun parseV3(o: JSONObject) = PadLayout(readElements(o, withVisibility = true))
-
-        /**
-         * v2 had one left control that was either the cross or a stick, chosen
-         * by a "stick" flag. Carry that choice over as visibility, and let the
-         * stick inherit the position and size the player gave the cross.
-         */
-        private fun parseV2(o: JSONObject): PadLayout {
-            // v2's TOGGLE entry no longer names a control; readElements drops
-            // unknown names, so it disappears on its own.
-            val map = readElements(o, withVisibility = false)
-            val stick = o.optBoolean("stick", false)
-            val left = map[PadElement.DPAD] ?: defaultFor(PadElement.DPAD)
-            map[PadElement.DPAD] = left.copy(visible = !stick)
-            map[PadElement.LSTICK] = ElementLayout(
-                x = left.x, y = left.y, scale = 1f, visible = stick,
-            )
             return PadLayout(map)
         }
 
-        /** v1 could only move the d-pad and the face cluster; keep those. */
-        private fun parseV1(o: JSONObject): PadLayout = PadLayout(
-            mapOf(
-                PadElement.DPAD to ElementLayout(
-                    x = o.optDouble("dx", 0.0).toFloat(),
-                    y = o.optDouble("dy", 0.0).toFloat(),
-                    scale = o.optDouble("ds", 1.0).toFloat().coerceIn(MIN_SCALE, MAX_SCALE),
-                ),
-                PadElement.FACE to ElementLayout(
-                    x = o.optDouble("fx", 0.0).toFloat(),
-                    y = o.optDouble("fy", 0.0).toFloat(),
-                    scale = o.optDouble("fs", 1.0).toFloat().coerceIn(MIN_SCALE, MAX_SCALE),
-                ),
-            )
-        )
+        /**
+         * v1 and v2 described a pad with one left control and no right stick,
+         * arranged completely differently. Their offsets would drop controls
+         * into empty space, and v2's either/or "stick" flag left whichever the
+         * player had NOT chosen switched off — which hid the left stick from
+         * everyone who was on the cross.
+         *
+         * So those reset to defaults rather than being half-translated. Losing
+         * a layout once beats a pad with controls missing or stacked, and the
+         * player could not have positioned the new controls anyway.
+         */
+        private fun parseLegacy(): PadLayout = PadLayout()
     }
 }
 
