@@ -2,7 +2,7 @@
 ; Build with installer\build-installer.ps1 (publishes the app, then compiles this).
 
 #define AppName "PocketPad for PC"
-#define AppVersion "0.4"
+#define AppVersion "0.6"
 #define AppExe "PocketPad for PC.exe"
 
 [Setup]
@@ -69,13 +69,14 @@ Filename: "{sys}\netsh.exe"; \
 Filename: "{sys}\netsh.exe"; \
   Parameters: "advfirewall firewall add rule name=""PocketPad for PC"" dir=in action=allow program=""{app}\{#AppExe}"" enable=yes"; \
   StatusMsg: "Allowing PocketPad through the firewall..."; Flags: runhidden waituntilterminated
-; runasoriginaluser: setup runs elevated, and without this the app inherits the
-; admin token for its entire first session. Clipboard and drag-drop then behave
-; differently than on every later launch, and UIPI blocks a normal-privilege
-; second launch from raising the elevated window — so the desktop icon looks
-; like it does nothing.
+; No runasoriginaluser here. The app manifest now requests
+; requireAdministrator, because mouse mode injects input with SendInput and
+; UIPI blocks that from a medium-integrity process whenever an elevated window
+; has focus. Every launch elevates now, so letting this one inherit setup's
+; already-elevated token is consistent with the rest and saves the user a
+; second UAC prompt moments after the one they just answered.
 Filename: "{app}\{#AppExe}"; Description: "Start {#AppName} now"; \
-  Flags: postinstall nowait skipifsilent runasoriginaluser
+  Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
 Filename: "{sys}\netsh.exe"; \

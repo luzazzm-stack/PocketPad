@@ -11,6 +11,8 @@
     <ApplicationIcon>pocketpad.ico</ApplicationIcon>
     <AssemblyTitle>PocketPad for PC</AssemblyTitle>
     <Product>PocketPad</Product>
+    <!-- Requests administrator. See app.manifest for why mouse mode needs it. -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>

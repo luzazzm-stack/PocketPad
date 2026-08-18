@@ -19,6 +19,11 @@ Grab both from the [**Releases page**](https://github.com/luzazzm-stack/PocketPa
 - **PC:** run `PocketPad-Setup.exe` — next-next-finish. It installs the app, the
   controller driver, the firewall rule, and a desktop icon. No .NET needed.
   (If SmartScreen appears: *More info → Run anyway* — the app isn't code-signed yet.)
+  PocketPad asks for **administrator** each time it starts — say yes. Mouse mode
+  moves the real Windows pointer, and Windows blocks a normal-privilege program
+  from doing that whenever a window running as administrator has focus, which is
+  what you hit the moment you minimise PocketPad and something else comes
+  forward. The gamepad itself is unaffected; only the pointer needs it.
 - **Phone:** open `PocketPad.apk` on the phone and allow the install.
 
 ## How to use it

@@ -67,25 +67,38 @@ speaking fake phone — multiplayer testing without hardware).
 ## 4 · Ship an update
 
 ```powershell
-# build the installer (self-contained; downloads the driver bundle if needed)
+# build the installer (self-contained; downloads and verifies the driver bundle)
 powershell -File installer\build-installer.ps1
 
-# upload both apps to the existing release (or create a new tag)
-gh release upload v0.3 installer\output\PocketPad-Setup.exe --clobber
-Copy-Item android\app\build\outputs\apk\debug\app-debug.apk $env:TEMP\PocketPad.apk
-gh release upload v0.3 $env:TEMP\PocketPad.apk --clobber
+# build the signed release APK
+cd android; .\gradlew.bat assembleRelease test; cd ..
+
+# cut the tag and attach both apps (swap v0.6 for the version you are shipping)
+gh release create v0.6 --title "PocketPad v0.6" --notes "..."
+gh release upload v0.6 installer\output\PocketPad-Setup.exe --clobber
+Copy-Item android\app\build\outputs\apk\release\app-release.apk $env:TEMP\PocketPad.apk
+gh release upload v0.6 $env:TEMP\PocketPad.apk --clobber
 ```
+
+Keep three version numbers in step when shipping: `versionCode`/`versionName`
+in `android\app\build.gradle.kts`, `AppVersion` in `installer\PocketPad.iss`,
+and the tag.
 
 Updating machines that already have PocketPad: run the new Setup.exe — it
 upgrades in place (same AppId). Phones: install the new APK over the old one.
 
 ## ⚠ Gotchas learned the hard way
 
-- **Debug APK signatures differ per machine.** Android signs debug builds with
-  a per-machine key, so an APK built on laptop B won't install *over* one from
-  laptop A — uninstall PocketPad from the phone first (or copy
-  `%USERPROFILE%\.android\debug.keystore` from the first machine). A proper
-  release keystore fixes this for good at launch.
+- **Ship the release APK, not the debug one.** `keystore\pocketpad.jks` is
+  checked in and both build types sign with it, so any build from any machine
+  installs *over* the previous one and keeps the player's layout. That is the
+  whole reason the key is in the repo. Building with a throwaway debug key
+  again would force an uninstall, wiping their settings.
+- **The PC app requests administrator** (`windows\PocketPad.App\app.manifest`).
+  Mouse mode injects input with `SendInput`, which UIPI blocks from a
+  medium-integrity process whenever an elevated window has focus — minimise
+  PocketPad next to an admin window and the pointer dies. `uiAccess="true"`
+  would fix it without full admin, but needs an Authenticode-signed exe.
 - **Don't publish the WPF app single-file + compressed** — it crashes with
   DllNotFoundException. `build-installer.ps1` already does it right.
 - **`sdkmanager` is deprecated and silently does nothing** — use

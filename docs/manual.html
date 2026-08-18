@@ -397,6 +397,13 @@
         </tbody>
       </table>
     </div>
+    <p><b>Why PocketPad asks for administrator.</b> Mouse mode moves the real Windows
+    pointer, and Windows only lets a program do that to windows running at the same
+    permission level or lower. Without administrator, the pointer froze the moment
+    anything running as administrator took the focus — Task Manager, an admin command
+    prompt, a game started as admin — and the usual way to land there is simply
+    minimising PocketPad so something else comes forward. Answering <b>Yes</b> to the
+    prompt when PocketPad starts is what keeps the pointer working everywhere.</p>
   </section>
 
   <!-- ============ PROBLEMS ============ -->
@@ -423,6 +430,16 @@
           <tr><td><b>Can't find the PC window</b></td>
               <td>It's tucked next to the clock, bottom-right of Windows. Double-click its
               little icon there to bring it back.</td></tr>
+          <tr><td><b>Mouse pointer won't move</b></td>
+              <td>PocketPad needs to be running <b>as administrator</b> — say <b>Yes</b> to
+              the prompt when it starts. Windows blocks a normal program from moving the
+              pointer while a window running as administrator has the focus, so without it
+              the pointer stops the moment you minimise PocketPad or click an admin
+              window. If you said No, close PocketPad and open it again.</td></tr>
+          <tr><td><b>Buttons work but the mouse doesn't</b></td>
+              <td>Same cause as above: the gamepad goes through a virtual controller, which
+              Windows never restricts, while the mouse moves the real pointer, which it
+              does. Restart PocketPad and accept the administrator prompt.</td></tr>
         </tbody>
       </table>
     </div>

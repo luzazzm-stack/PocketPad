@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+
+  <assemblyIdentity version="1.0.0.0" name="PocketPad.App"/>
+
+  <!--
+    PocketPad runs as administrator on purpose.
+
+    Mouse mode drives Windows through SendInput, and UIPI blocks that call
+    outright whenever the focused window belongs to a higher-integrity process.
+    As a normal medium-integrity app the cursor therefore froze the moment
+    anything running as administrator took focus - Task Manager, an elevated
+    terminal, a game started as admin - and the usual way to hit that is simply
+    minimising PocketPad so something else comes forward. Nothing recovers it
+    but clicking back onto a normal window.
+
+    The clean fix is uiAccess="true", which grants exactly this privilege
+    without full administrator rights, but Windows only honours it for an
+    executable that is Authenticode-signed by a trusted CA and installed under
+    Program Files. PocketPad is not code-signed yet, so requireAdministrator is
+    the option that works today. Revisit this once there is a signing cert.
+
+    Cost of this choice: every launch shows a UAC prompt.
+  -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+    <security>
+      <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+        <requestedExecutionLevel level="requireAdministrator" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Windows 10 and 11: opt in so version checks and DPI behave modern. -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+    </application>
+  </compatibility>
+
+  <!--
+    No <windowsSettings> DPI block here. UseWindowsForms is on for the tray
+    icon, and the WinForms build rejects manifest DPI settings (WFAC010) — WPF
+    already handles per-monitor DPI on its own.
+  -->
+
+</assembly>
