@@ -172,6 +172,7 @@ fun GamepadScreen(
     settings: AppSettings,
     onSwitchToMouse: () -> Unit,
     onOpenSettings: () -> Unit,
+    onToggleRightStick: () -> Unit,
 ) {
     val hf = LocalHaptics.current
     val lay = settings.layout
@@ -354,30 +355,27 @@ fun GamepadScreen(
                 color = if ((latencyMs ?: 99) < 20) Color(0xFF9ECE6A) else Color(0xFFE0AF68),
                 style = MaterialTheme.typography.labelMedium,
             )
+            // On the pad, not in Settings: which games want a look stick
+            // changes game to game, so this has to be one tap away mid-session.
+            StickChip(
+                on = lay.of(PadElement.RSTICK).visible,
+                onToggle = onToggleRightStick,
+            )
             GearChip(onClick = onOpenSettings)
         }
 
         // ---- shoulders, triggers, stick clicks, menu ----
-        PlacedButton(PadControl.LB, PadElement.LB, "LB", 88.dp, 40.dp,
-            RoundedCornerShape(11.dp), lay, pressed) { zones[PadControl.LB] = it }
-        PlacedButton(PadControl.LT, PadElement.LT, "LT", 78.dp, 40.dp,
-            RoundedCornerShape(11.dp), lay, pressed) { zones[PadControl.LT] = it }
-        PlacedButton(PadControl.RB, PadElement.RB, "RB", 88.dp, 40.dp,
-            RoundedCornerShape(11.dp), lay, pressed) { zones[PadControl.RB] = it }
-        PlacedButton(PadControl.RT, PadElement.RT, "RT", 78.dp, 40.dp,
-            RoundedCornerShape(11.dp), lay, pressed) { zones[PadControl.RT] = it }
-        PlacedButton(PadControl.L3, PadElement.L3, "L3", 72.dp, 34.dp,
-            RoundedCornerShape(50), lay, pressed) { zones[PadControl.L3] = it }
-        PlacedButton(PadControl.R3, PadElement.R3, "R3", 72.dp, 34.dp,
-            RoundedCornerShape(50), lay, pressed) { zones[PadControl.R3] = it }
-        PlacedButton(PadControl.BACK, PadElement.BACK, "BACK", 86.dp, 34.dp,
-            RoundedCornerShape(50), lay, pressed) { zones[PadControl.BACK] = it }
-        PlacedButton(PadControl.START, PadElement.START, "START", 86.dp, 34.dp,
-            RoundedCornerShape(50), lay, pressed) { zones[PadControl.START] = it }
+        // Drawn in PAD_SPECS order, the same order the editor iterates, so two
+        // overlapping controls stack the same way on both screens — otherwise
+        // the one that answers a touch differs between tuning and playing.
+        PAD_SPECS.keys.forEach { element ->
+            val ctl = controlOf(element) ?: return@forEach
+            PlacedButton(ctl, element, lay, pressed) { zones[ctl] = it }
+        }
 
         // ---- d-pad ----
         val dpadSpec = specOf(PadElement.DPAD)
-        val dpadL = lay.of(PadElement.DPAD)
+        val dpadL = lay.of(PadElement.DPAD).clampedTo(dpadSpec)
         if (dpadL.visible) {
             DpadCross(
                 size = DPAD_BASE * dpadL.scale,
@@ -391,7 +389,7 @@ fun GamepadScreen(
 
         // ---- left stick: movement ----
         val lSpec = specOf(PadElement.LSTICK)
-        val lL = lay.of(PadElement.LSTICK)
+        val lL = lay.of(PadElement.LSTICK).clampedTo(lSpec)
         if (lL.visible) {
             AnalogStick(
                 size = STICK_BASE * lL.scale,
@@ -406,7 +404,7 @@ fun GamepadScreen(
 
         // ---- right stick: camera and aim ----
         val rSpec = specOf(PadElement.RSTICK)
-        val rL = lay.of(PadElement.RSTICK)
+        val rL = lay.of(PadElement.RSTICK).clampedTo(rSpec)
         if (rL.visible) {
             AnalogStick(
                 size = STICK_BASE * rL.scale,
@@ -421,7 +419,7 @@ fun GamepadScreen(
 
         // ---- face cluster ----
         val faceSpec = specOf(PadElement.FACE)
-        val faceL = lay.of(PadElement.FACE)
+        val faceL = lay.of(PadElement.FACE).clampedTo(faceSpec)
         if (faceL.visible) {
             FaceCluster(
                 buttonSize = FACE_BUTTON_BASE * faceL.scale,
@@ -452,31 +450,41 @@ internal val FACE_CONTROLS = setOf(PadControl.A, PadControl.B, PadControl.X, Pad
  */
 internal const val FACE_SLOP_FRACTION = 0.28f
 
+/** The pressable control a layout element carries, if it is a plain button. */
+private fun controlOf(e: PadElement): PadControl? = when (e) {
+    PadElement.LB -> PadControl.LB
+    PadElement.RB -> PadControl.RB
+    PadElement.LT -> PadControl.LT
+    PadElement.RT -> PadControl.RT
+    PadElement.L3 -> PadControl.L3
+    PadElement.R3 -> PadControl.R3
+    PadElement.BACK -> PadControl.BACK
+    PadElement.START -> PadControl.START
+    PadElement.DPAD, PadElement.LSTICK, PadElement.RSTICK, PadElement.FACE -> null
+}
+
 /** A rectangular control placed, sized and shown per the saved layout. */
 @Composable
 private fun BoxScope.PlacedButton(
     ctl: PadControl,
     element: PadElement,
-    label: String,
-    width: Dp,
-    height: Dp,
-    shape: Shape,
     lay: PadLayout,
     pressed: Set<PadControl>,
     onZone: (Rect) -> Unit,
 ) {
-    val l = lay.of(element)
-    if (!l.visible) return
     val spec = specOf(element)
+    val l = lay.of(element).clampedTo(spec)
+    if (!l.visible) return
+    val m = buttonMetricsOf(element) ?: return
     DepthButton(
-        label,
+        element.name,
         pressed = ctl in pressed,
         Modifier
             .align(spec.align)
             .placeElement(spec, l)
-            .size(width * l.scale, height * l.scale)
+            .size(m.width * l.scale, m.height * l.scale)
             .onGloballyPositioned { onZone(it.boundsInRoot()) },
-        shape,
+        if (m.pill) RoundedCornerShape(50) else RoundedCornerShape(11.dp),
     )
 }
 
@@ -681,6 +689,47 @@ internal fun DepthButton(
         contentAlignment = Alignment.Center,
     ) {
         Text(label, color = Color(0xFF98A2C0), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+    }
+}
+
+/**
+ * Turns the look stick on and off from the pad itself.
+ *
+ * Visibility also lives in Settings and the layout editor, but neither is
+ * reachable without leaving the game — and whether a title wants a right stick
+ * is exactly the kind of thing you discover once you are already playing.
+ */
+@Composable
+private fun StickChip(on: Boolean, onToggle: () -> Unit) {
+    Box(
+        Modifier
+            .size(74.dp, 26.dp)
+            .clip(RoundedCornerShape(13.dp))
+            .background(if (on) Color(0xFF2C3557) else Color(0xFF23262F))
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        // Release-inside, like the gear: a thumb brushing the
+                        // top bar must not flip a control away mid-fight.
+                        val down = awaitFirstDown()
+                        down.consume()
+                        val up = waitForUpOrCancellation() ?: continue
+                        up.consume()
+                        val p = up.position
+                        if (p.x >= 0f && p.y >= 0f &&
+                            p.x <= size.width && p.y <= size.height
+                        ) onToggle()
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            if (on) "STICK ON" else "STICK OFF",
+            color = if (on) Color(0xFF9DB4F0) else Color(0xFF5C6480),
+            fontWeight = FontWeight.Bold,
+            fontSize = 9.sp,
+        )
     }
 }
 

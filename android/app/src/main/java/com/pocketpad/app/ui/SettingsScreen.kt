@@ -27,9 +27,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.Box
 import com.pocketpad.app.haptics.LocalHaptics
 import com.pocketpad.app.settings.AppSettings
+import com.pocketpad.app.settings.PadElement
 
 /** Settings: layout customizer entry, haptics, trackpad speed. */
 @Composable
@@ -64,6 +64,65 @@ fun SettingsScreen(
             subtitle = "Drag the controls where your thumbs want them, and resize them",
             trailing = { Text("›", color = Color(0xFF6B7392), fontSize = 22.sp) },
             onClick = onEditLayout,
+        )
+
+        SettingCard(
+            title = "Layout presets",
+            subtitle = "A ready-made pad per kind of game — applies straight away",
+            trailing = {},
+            below = {
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    PadPreset.entries.forEachIndexed { i, preset ->
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(9.dp))
+                                .background(Color(0xFF262A3A))
+                                .clickable {
+                                    onChange(settings.copy(layout = presetLayout(preset)))
+                                }
+                                .padding(vertical = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                "Layout ${i + 1}",
+                                color = Color(0xFF9DB4F0),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                            )
+                            Text(
+                                preset.blurb,
+                                color = Color(0xFF6B7392),
+                                fontSize = 8.5.sp,
+                            )
+                        }
+                    }
+                }
+            },
+        )
+
+        SettingCard(
+            title = "Right stick",
+            subtitle = "The look/aim stick — turn it off for games that don't use a camera",
+            trailing = {
+                Switch(
+                    checked = settings.layout.of(PadElement.RSTICK).visible,
+                    onCheckedChange = { on ->
+                        onChange(settings.copy(
+                            layout = settings.layout.with(PadElement.RSTICK) {
+                                it.copy(visible = on)
+                            }
+                        ))
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedTrackColor = Color(0xFF7AA2F7),
+                        checkedThumbColor = Color(0xFF14151D),
+                    ),
+                )
+            },
         )
 
         SettingCard(

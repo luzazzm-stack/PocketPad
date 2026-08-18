@@ -53,6 +53,7 @@ import com.journeyapps.barcodescanner.ScanOptions
 import com.pocketpad.app.haptics.Haptics
 import com.pocketpad.app.haptics.LocalHaptics
 import com.pocketpad.app.settings.AppSettings
+import com.pocketpad.app.settings.PadElement
 import com.pocketpad.app.settings.SettingsStore
 import com.pocketpad.app.transport.PadConnection
 import com.pocketpad.app.ui.GamepadScreen
@@ -199,6 +200,18 @@ class MainActivity : ComponentActivity() {
                                     settings = settings,
                                     onSwitchToMouse = { switchTo(PadConnection.Mode.MOUSE) },
                                     onOpenSettings = { ui = s.copy(screen = Screen.SETTINGS) },
+                                    onToggleRightStick = {
+                                        // Persist at once: the choice should
+                                        // survive leaving the pad or the app.
+                                        updateSettings(
+                                            settings.copy(
+                                                layout = settings.layout
+                                                    .with(PadElement.RSTICK) {
+                                                        it.copy(visible = !it.visible)
+                                                    }
+                                            )
+                                        )
+                                    },
                                 )
                                 PadConnection.Mode.MOUSE -> TrackpadScreen(
                                     connection = s.connection,
