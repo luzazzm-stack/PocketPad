@@ -325,15 +325,40 @@ public partial class MainWindow : Window
     private void OnDisconnectPhone(object sender, RoutedEventArgs e) => _session?.DisconnectPhones();
 
     private void OnGetDriver(object sender, RoutedEventArgs e) =>
-        Process.Start(new ProcessStartInfo("https://github.com/nefarius/ViGEmBus/releases/latest")
-        { UseShellExecute = true });
+        OpenUnelevated("https://github.com/nefarius/ViGEmBus/releases/latest");
+
+    /// <summary>
+    /// Open a link or file WITHOUT passing our elevated token to the child.
+    ///
+    /// The app requests requireAdministrator so mouse mode can inject input, and
+    /// a process started with UseShellExecute inherits that token — so the
+    /// user's browser would launch as administrator. Chrome and Firefox then
+    /// refuse to attach to the already-running medium-integrity profile
+    /// ("profile appears to be in use"), and if none is running the user is left
+    /// browsing as admin. explorer.exe runs as the logged-in user, so handing it
+    /// the target drops the elevation.
+    /// </summary>
+    private static void OpenUnelevated(string target)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{target}\"")
+            { UseShellExecute = false });
+        }
+        catch (Exception)
+        {
+            // explorer is missing or refused; better an elevated browser than
+            // a dead button.
+            Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
+        }
+    }
 
     private void OnHelp(object sender, RoutedEventArgs e)
     {
         // The manual ships beside the exe; open it in the default browser.
         var path = Path.Combine(AppContext.BaseDirectory, "manual.html");
         if (File.Exists(path))
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            OpenUnelevated(path);
         else
             MessageBox.Show(this,
                 "The manual file (manual.html) is missing from the PocketPad folder.\n" +

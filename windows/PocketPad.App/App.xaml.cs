@@ -17,7 +17,23 @@ public partial class App : System.Windows.Application
         // Single instance: double-clicking the icon while PocketPad is in the
         // tray must bring the existing window back, not silently do nothing
         // (a second copy could never bind the ports anyway).
-        _instanceMutex = new Mutex(initiallyOwned: true, MutexName, out bool isFirst);
+        // Guarded: these are session-namespace objects carrying the creating
+        // account's DACL. Setup can be elevated with a DIFFERENT admin account
+        // than the one at the keyboard (over-the-shoulder UAC), so a later
+        // launch under another account hits an object it cannot open and the
+        // constructor throws UnauthorizedAccessException straight out of
+        // OnStartup — an unhandled-exception dialog instead of an app.
+        bool isFirst;
+        try
+        {
+            _instanceMutex = new Mutex(initiallyOwned: true, MutexName, out isFirst);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Someone else's instance owns the name. Treat it as "not first"
+            // and try to raise theirs rather than dying.
+            isFirst = false;
+        }
         if (!isFirst)
         {
             try
@@ -30,14 +46,30 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
-
+        try
+        {
+            _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Same cross-account case; without the signal a second launch just
+            // cannot raise this window, which beats refusing to start.
+            _showEvent = null;
+        }
         var window = new MainWindow();
         if (window.StartupFailed)
         {
             // The ports were taken; the window has already explained that and
             // queued Shutdown(). Showing it, or starting the waiter, would only
             // put UI on screen on the way back out.
+            return;
+        }
+
+        if (_showEvent is null)
+        {
+            // No cross-launch signal available, so a second launch cannot raise
+            // this window — but the app itself works fine. Run without it.
+            window.Show();
             return;
         }
 

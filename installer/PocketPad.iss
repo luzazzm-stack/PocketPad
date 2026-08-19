@@ -2,7 +2,7 @@
 ; Build with installer\build-installer.ps1 (publishes the app, then compiles this).
 
 #define AppName "PocketPad for PC"
-#define AppVersion "0.6"
+#define AppVersion "0.6.1"
 #define AppExe "PocketPad for PC.exe"
 
 [Setup]
@@ -69,14 +69,16 @@ Filename: "{sys}\netsh.exe"; \
 Filename: "{sys}\netsh.exe"; \
   Parameters: "advfirewall firewall add rule name=""PocketPad for PC"" dir=in action=allow program=""{app}\{#AppExe}"" enable=yes"; \
   StatusMsg: "Allowing PocketPad through the firewall..."; Flags: runhidden waituntilterminated
-; No runasoriginaluser here. The app manifest now requests
-; requireAdministrator, because mouse mode injects input with SendInput and
-; UIPI blocks that from a medium-integrity process whenever an elevated window
-; has focus. Every launch elevates now, so letting this one inherit setup's
-; already-elevated token is consistent with the rest and saves the user a
-; second UAC prompt moments after the one they just answered.
+; runasoriginaluser matters even though the app now requests
+; requireAdministrator. PrivilegesRequired=admin means a standard user running
+; setup is prompted for an ADMINISTRATOR's credentials, and setup then runs as
+; that account - not the person at the keyboard. Without this flag the app
+; inherits it, so its tray icon, clipboard and window belong to the wrong user,
+; and the named Mutex it creates carries that account's DACL. Launching as the
+; original user costs one UAC prompt and matches what the README and manual
+; already tell people to expect on every launch.
 Filename: "{app}\{#AppExe}"; Description: "Start {#AppName} now"; \
-  Flags: postinstall nowait skipifsilent
+  Flags: postinstall nowait skipifsilent runasoriginaluser
 
 [UninstallRun]
 Filename: "{sys}\netsh.exe"; \
