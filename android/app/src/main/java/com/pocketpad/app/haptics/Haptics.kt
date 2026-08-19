@@ -48,19 +48,19 @@ class Haptics(context: Context) {
     // its worker alive for the life of the process, and Haptics is built per
     // Activity, so every restart would strand another idle thread.
     //
-    // The queue is small and bounded, and overflow is DISCARDED rather than
-    // thrown: a burst of presses should each be felt, a flood must not pile up
-    // seconds of buzzing behind the player, and execute() must never throw
-    // back into the input loop.
+    // The queue is small and bounded, and overflow discards the OLDEST waiting
+    // tick rather than the one just submitted — a haptic cue is about the press
+    // that just happened, so dropping the newest is backwards. execute() never
+    // throws back into the input loop either way.
     private val motorThread = ThreadPoolExecutor(
-        0, 1, 15L, TimeUnit.SECONDS, ArrayBlockingQueue(4),
+        0, 1, 15L, TimeUnit.SECONDS, ArrayBlockingQueue(3),
         { r ->
             Thread(r, "PocketPad.Haptics").apply {
                 isDaemon = true
                 priority = Thread.MIN_PRIORITY
             }
         },
-        ThreadPoolExecutor.DiscardPolicy(),
+        ThreadPoolExecutor.DiscardOldestPolicy(),
     )
 
     /** One short tick — a button registered. Returns immediately. */
@@ -118,6 +118,17 @@ class Haptics(context: Context) {
             // Android 6/7: no VibrationEffect — duration-only vibrate carries
             // the percentage on its own.
             else -> @Suppress("DEPRECATION") v.vibrate(durationMs, gameAttrs)
+        }
+
+        // Hold the worker for the tick's length before taking the next one.
+        // vibrate() is fire-and-forget AND each call cancels the effect still
+        // running, so without this the executor drained a queued burst in
+        // microseconds and three presses collapsed into a single buzz — the
+        // very thing the queue was added to prevent.
+        try {
+            Thread.sleep(durationMs)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
         }
     }
 }
