@@ -2,7 +2,7 @@
 ; Build with installer\build-installer.ps1 (publishes the app, then compiles this).
 
 #define AppName "PocketPad for PC"
-#define AppVersion "0.6.1"
+#define AppVersion "0.6.2"
 #define AppExe "PocketPad for PC.exe"
 
 [Setup]

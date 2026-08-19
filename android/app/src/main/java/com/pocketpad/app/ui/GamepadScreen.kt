@@ -6,7 +6,6 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -27,8 +26,7 @@ import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -37,6 +35,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
@@ -52,7 +51,6 @@ import com.pocketpad.app.protocol.Dpad
 import com.pocketpad.app.protocol.PadState
 import com.pocketpad.app.settings.AppSettings
 import com.pocketpad.app.settings.PadElement
-import com.pocketpad.app.settings.PadLayout
 import com.pocketpad.app.transport.PadConnection
 import kotlin.math.atan2
 import kotlin.math.hypot
@@ -186,7 +184,15 @@ fun GamepadScreen(
     var rStickZone by remember { mutableStateOf(Rect.Zero) }
     var boxOrigin by remember { mutableStateOf(Offset.Zero) }
 
-    // What the input core decided this frame (visuals render from this).
+    // What the input core decided this frame. The visuals read these inside
+    // their DRAW blocks (Canvas / graphicsLayer lambdas), never in
+    // composition: a stick move arrives at touch-sampling rate (120 Hz+ on
+    // most phones), and when these were read in the composable body every
+    // such change recomposed the entire screen — enough main-thread load on a
+    // budget phone to batch the incoming touch events, which is exactly what
+    // squeezed a press and its release into the same send window and dropped
+    // taps. Read in draw phase, an input change invalidates a few layers and
+    // recomposes nothing.
     var pressed by remember { mutableStateOf(emptySet<PadControl>()) }
     var dpad by remember { mutableStateOf(Dpad.NEUTRAL) }
     var lStick by remember { mutableStateOf(Offset.Zero) }
@@ -393,27 +399,27 @@ fun GamepadScreen(
             when (element) {
                 PadElement.DPAD -> DpadCross(
                     size = DPAD_BASE * l.scale,
-                    current = dpad,
+                    current = { dpad },
                     modifier = place.onGloballyPositioned { dpadZone = it.boundsInRoot() },
                 )
 
                 PadElement.LSTICK -> AnalogStick(
                     size = STICK_BASE * l.scale,
-                    knob = lStick,
+                    knob = { lStick },
                     label = "L",
                     modifier = place.onGloballyPositioned { lStickZone = it.boundsInRoot() },
                 )
 
                 PadElement.RSTICK -> AnalogStick(
                     size = STICK_BASE * l.scale,
-                    knob = rStick,
+                    knob = { rStick },
                     label = "R",
                     modifier = place.onGloballyPositioned { rStickZone = it.boundsInRoot() },
                 )
 
                 PadElement.FACE -> FaceCluster(
                     buttonSize = FACE_BUTTON_BASE * l.scale,
-                    pressed = pressed,
+                    pressed = { pressed },
                     onZone = { ctl, rect -> zones[ctl] = rect },
                     modifier = place,
                 )
@@ -423,7 +429,7 @@ fun GamepadScreen(
                     val m = buttonMetricsOf(element) ?: return@forEach
                     DepthButton(
                         element.name,
-                        pressed = ctl in pressed,
+                        pressed = { ctl in pressed },
                         place
                             .size(m.width * l.scale, m.height * l.scale)
                             .onGloballyPositioned { zones[ctl] = it.boundsInRoot() },
@@ -465,42 +471,24 @@ private fun controlOf(e: PadElement): PadControl? = when (e) {
     PadElement.DPAD, PadElement.LSTICK, PadElement.RSTICK, PadElement.FACE -> null
 }
 
-/** A rectangular control placed, sized and shown per the saved layout. */
-@Composable
-private fun BoxScope.PlacedButton(
-    ctl: PadControl,
-    element: PadElement,
-    lay: PadLayout,
-    pressed: Set<PadControl>,
-    onZone: (Rect) -> Unit,
-) {
-    val spec = specOf(element)
-    val l = lay.of(element).clampedTo(spec)
-    if (!l.visible) return
-    val m = buttonMetricsOf(element) ?: return
-    DepthButton(
-        element.name,
-        pressed = ctl in pressed,
-        Modifier
-            .align(spec.align)
-            .placeElement(spec, l)
-            .size(m.width * l.scale, m.height * l.scale)
-            .onGloballyPositioned { onZone(it.boundsInRoot()) },
-        if (m.pill) RoundedCornerShape(50) else RoundedCornerShape(11.dp),
-    )
-}
-
 // ============================== d-pad ==============================
 
-/** Visual-only d-pad cross; the screen's input core feeds [current]. */
+/**
+ * Visual-only d-pad cross; the screen's input core feeds [current].
+ *
+ * [current] is a provider, not a value, and is read only inside the Canvas
+ * block: a direction change then redraws this one canvas instead of
+ * recomposing the screen. The same pattern holds for every control below.
+ */
 @Composable
 fun DpadCross(
     size: Dp,
-    current: Dpad,
+    current: () -> Dpad,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier.size(size)) {
         Canvas(Modifier.fillMaxSize()) {
+            val cur = current()
             val w = this.size.width
             val arm = w * 0.335f
             val r = arm * 0.26f
@@ -514,10 +502,10 @@ fun DpadCross(
 
             // Each arm lights on its own. Drawing the cross as two full-length
             // bars lit the opposite arm too — pressing UP also lit DOWN.
-            val upHot = current == Dpad.UP || current == Dpad.UP_LEFT || current == Dpad.UP_RIGHT
-            val downHot = current == Dpad.DOWN || current == Dpad.DOWN_LEFT || current == Dpad.DOWN_RIGHT
-            val leftHot = current == Dpad.LEFT || current == Dpad.UP_LEFT || current == Dpad.DOWN_LEFT
-            val rightHot = current == Dpad.RIGHT || current == Dpad.UP_RIGHT || current == Dpad.DOWN_RIGHT
+            val upHot = cur == Dpad.UP || cur == Dpad.UP_LEFT || cur == Dpad.UP_RIGHT
+            val downHot = cur == Dpad.DOWN || cur == Dpad.DOWN_LEFT || cur == Dpad.DOWN_RIGHT
+            val leftHot = cur == Dpad.LEFT || cur == Dpad.UP_LEFT || cur == Dpad.DOWN_LEFT
+            val rightHot = cur == Dpad.RIGHT || cur == Dpad.UP_RIGHT || cur == Dpad.DOWN_RIGHT
 
             val half = w / 2f
             val side = (w - arm) / 2f
@@ -575,12 +563,15 @@ fun DpadCross(
 @Composable
 fun AnalogStick(
     size: Dp,
-    knob: Offset = Offset.Zero,
+    knob: () -> Offset = { Offset.Zero },
     label: String? = null,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier.size(size)) {
         Canvas(Modifier.fillMaxSize()) {
+            // Draw-phase read: a moving thumb redraws this canvas ~120 times a
+            // second, and composition must not be on that path.
+            val k = knob()
             val w = this.size.width
             val r = w / 2f
             val c = Offset(r, r)
@@ -596,7 +587,7 @@ fun AnalogStick(
 
             val kr = r * STICK_KNOB_FRACTION
             val travel = r - kr
-            val kc = Offset(r + knob.x * travel, r + knob.y * travel)
+            val kc = Offset(r + k.x * travel, r + k.y * travel)
             drawCircle(Color(0xFF20232F), radius = kr * 1.05f, center = kc)
             drawCircle(
                 Brush.verticalGradient(
@@ -627,17 +618,17 @@ fun AnalogStick(
 @Composable
 fun FaceCluster(
     buttonSize: Dp,
-    pressed: Set<PadControl> = emptySet(),
+    pressed: () -> Set<PadControl> = { emptySet() },
     modifier: Modifier = Modifier,
     onZone: ((PadControl, Rect) -> Unit)? = null,
 ) {
     Box(modifier.size(buttonSize * 3)) {
         FaceButton("Y", buttonSize, Color(0xFFEBC183), Color(0xFFD9A053),
-            PadControl.Y in pressed,
+            { PadControl.Y in pressed() },
             Modifier.align(Alignment.TopCenter)
                 .onGloballyPositioned { onZone?.invoke(PadControl.Y, it.boundsInRoot()) })
         FaceButton("A", buttonSize, Color(0xFFB1DD80), Color(0xFF8CBE58),
-            PadControl.A in pressed,
+            { PadControl.A in pressed() },
             Modifier.align(Alignment.BottomCenter)
                 .onGloballyPositioned { onZone?.invoke(PadControl.A, it.boundsInRoot()) })
         // AbsoluteAlignment, not CenterStart/CenterEnd: supportsRtl is true, and
@@ -645,11 +636,11 @@ fun FaceCluster(
         // two most-used buttons - while onZone still reports them by their old
         // names, so nothing else looks wrong. A controller does not mirror.
         FaceButton("X", buttonSize, Color(0xFF95BCFF), Color(0xFF6E96EC),
-            PadControl.X in pressed,
+            { PadControl.X in pressed() },
             Modifier.align(AbsoluteAlignment.CenterLeft)
                 .onGloballyPositioned { onZone?.invoke(PadControl.X, it.boundsInRoot()) })
         FaceButton("B", buttonSize, Color(0xFFFA8FA5), Color(0xFFEE607C),
-            PadControl.B in pressed,
+            { PadControl.B in pressed() },
             Modifier.align(AbsoluteAlignment.CenterRight)
                 .onGloballyPositioned { onZone?.invoke(PadControl.B, it.boundsInRoot()) })
     }
@@ -661,15 +652,24 @@ private fun FaceButton(
     size: Dp,
     top: Color,
     bottom: Color,
-    pressed: Boolean,
+    pressed: () -> Boolean,
     modifier: Modifier,
 ) {
+    // Scale, shadow and clip live in one graphicsLayer whose lambda reads
+    // [pressed] — a press updates layer properties without recomposition or
+    // relayout, which also keeps onGloballyPositioned (the hit zones) quiet.
     Box(
         modifier
             .size(size)
-            .scale(if (pressed) 0.93f else 1f)
-            .shadow(if (pressed) 2.dp else 7.dp, CircleShape, clip = false)
-            .clip(CircleShape)
+            .graphicsLayer {
+                val p = pressed()
+                val s = if (p) 0.93f else 1f
+                scaleX = s
+                scaleY = s
+                shadowElevation = (if (p) 2.dp else 7.dp).toPx()
+                shape = CircleShape
+                clip = true
+            }
             .background(Brush.verticalGradient(listOf(top, bottom))),
         contentAlignment = Alignment.Center,
     ) {
@@ -682,16 +682,27 @@ private fun FaceButton(
 @Composable
 internal fun DepthButton(
     label: String,
-    pressed: Boolean,
+    pressed: () -> Boolean,
     modifier: Modifier,
     shape: Shape,
 ) {
+    // Same draw-phase pattern as FaceButton: the press visual (scale, shadow,
+    // fill colour) reads [pressed] in layer/draw lambdas, so pressing costs no
+    // recomposition.
     Box(
         modifier
-            .scale(if (pressed) 0.95f else 1f)
-            .shadow(if (pressed) 1.dp else 4.dp, shape, clip = false)
-            .clip(shape)
-            .background(if (pressed) Color(0xFF3D4569) else Color(0xFF262A3A)),
+            .graphicsLayer {
+                val p = pressed()
+                val s = if (p) 0.95f else 1f
+                scaleX = s
+                scaleY = s
+                shadowElevation = (if (p) 1.dp else 4.dp).toPx()
+                this.shape = shape
+                clip = true
+            }
+            .drawBehind {
+                drawRect(if (pressed()) Color(0xFF3D4569) else Color(0xFF262A3A))
+            },
         contentAlignment = Alignment.Center,
     ) {
         Text(label, color = Color(0xFF98A2C0), fontWeight = FontWeight.Bold, fontSize = 12.sp)

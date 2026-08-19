@@ -1,6 +1,5 @@
 package com.pocketpad.app.transport
 
-import com.pocketpad.app.protocol.Dpad
 import com.pocketpad.app.protocol.MousePacket
 import com.pocketpad.app.protocol.MouseState
 import com.pocketpad.app.protocol.PadState
@@ -64,38 +63,26 @@ class PadConnection(
     private val clickLatch = AtomicInteger(0)
 
     /**
-     * Presses seen since the last pad packet went out.
-     *
-     * The sender samples the state every 8 ms, so a press whose down and up
-     * both land inside one sampling gap is never transmitted at all — the
-     * phone shows the button lit and the PC sees nothing. That is easy to hit
-     * with a quick tap, and easier still whenever the UI thread stalls and
-     * delivers the two pointer events back to back. These latches hold such a
-     * press into exactly one packet, then clear.
+     * Orders and paces every button/d-pad edge onto the wire. The sender
+     * samples [state] for the sticks (latest wins on a continuous axis), but
+     * buttons and d-pad go through this so a burst of taps comes out as the
+     * same number of distinct, game-visible presses — see [EdgePacer].
      */
-    private val buttonLatch = AtomicInteger(0)
-    private val dpadLatch = AtomicReference(Dpad.NEUTRAL)
+    private val pacer = EdgePacer()
 
     fun setMode(m: Mode) {
         // Drop everything held so nothing sticks down across the switch.
         state.set(PadState())
         mouse.set(MouseState())
         clickLatch.set(0)
-        buttonLatch.set(0)
-        dpadLatch.set(Dpad.NEUTRAL)
+        pacer.reset()
         mode.set(m)
     }
 
-    /**
-     * Publish the pad state. Anything newly pressed is latched so it survives
-     * at least one packet, even if the finger has already lifted by the time
-     * the sender next looks.
-     */
+    /** Publish the pad state. Button and d-pad edges are queued, never lost. */
     fun setPadState(s: PadState) {
-        val prev = state.getAndSet(s)
-        val newly = s.buttons and prev.buttons.inv()
-        if (newly != 0) buttonLatch.getAndUpdate { it or newly }
-        if (s.dpad != Dpad.NEUTRAL && s.dpad != prev.dpad) dpadLatch.set(s.dpad)
+        state.set(s)
+        pacer.offer(s.buttons, s.dpad)
     }
 
     /** Accumulate pointer movement (pixels) until the next packet goes out. */
@@ -185,18 +172,13 @@ class PadConnection(
                         }
 
                         if (m == Mode.PAD) {
-                            // Fold in anything pressed since the last packet so
-                            // a tap shorter than the sampling gap still lands.
+                            // Sticks from the latest state; buttons and d-pad
+                            // from the pacer, which replays every edge in
+                            // order and holds each one long enough to be seen.
                             val snap = state.get()
-                            val bl = buttonLatch.getAndSet(0)
-                            val dl = dpadLatch.getAndSet(Dpad.NEUTRAL)
-                            val outgoing =
-                                if (bl == 0 && dl == Dpad.NEUTRAL) snap
-                                else snap.copy(
-                                    buttons = snap.buttons or bl,
-                                    dpad = if (snap.dpad != Dpad.NEUTRAL) snap.dpad else dl,
-                                )
-                            send(StatePacket.encode(seq, outgoing, player, padBuf))
+                            val (btns, dp) = pacer.tick()
+                            send(StatePacket.encode(
+                                seq, snap.copy(buttons = btns, dpad = dp), player, padBuf))
                         } else {
                             // Deltas are consumed: take them and zero them atomically.
                             val snapshot = mouse.getAndUpdate { it.consumed() }

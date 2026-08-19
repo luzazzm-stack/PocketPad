@@ -87,7 +87,7 @@ fun LayoutEditScreen(
             ) {
                 when (element) {
                     PadElement.DPAD ->
-                        DpadCross(size = DPAD_BASE * l.scale, current = Dpad.NEUTRAL)
+                        DpadCross(size = DPAD_BASE * l.scale, current = { Dpad.NEUTRAL })
 
                     PadElement.LSTICK -> AnalogStick(size = STICK_BASE * l.scale, label = "L")
                     PadElement.RSTICK -> AnalogStick(size = STICK_BASE * l.scale, label = "R")
@@ -100,7 +100,7 @@ fun LayoutEditScreen(
                         val m = buttonMetricsOf(element)!!
                         DepthButton(
                             element.name,
-                            pressed = false,
+                            pressed = { false },
                             Modifier.size(m.width * l.scale, m.height * l.scale),
                             if (m.pill) RoundedCornerShape(50) else RoundedCornerShape(11.dp),
                         )
