@@ -73,8 +73,7 @@ fun presetLayout(p: PadPreset): PadLayout = when (p) {
         )
     )
 
-    // Defaults plus the two stick clicks, which sit in the top row beside the
-    // triggers.
+    // Defaults plus the two stick clicks, which sit just above BACK/START.
     PadPreset.EVERYTHING -> PadLayout(
         mapOf(
             PadElement.L3 to shown(PadElement.L3),
