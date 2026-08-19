@@ -77,17 +77,21 @@ data class PadLayout(
         )
 
         /**
-         * The oldest schema [parseCurrent] can read. v3 introduced the element
-         * map with per-control visibility and v4 changed nothing about the
-         * format — only the default anchors moved — so a v3 blob parses
-         * cleanly. Anything older described a pad with one left control and no
-         * right stick, and cannot be translated.
+         * The oldest schema [parseCurrent] can read.
+         *
+         * v3 has the same JSON *shape* as v4, and that is exactly the trap: the
+         * commit that introduced v4 also moved every anchor from
+         * centre-relative to edge-relative, so a stored offset means something
+         * different now. A v3 player who put the left stick 60 dp below centre
+         * gets 60 dp measured down from a bottom edge instead — the same
+         * "offsets drop controls into empty space" problem that v1/v2 are
+         * discarded for. Sharing a schema is not the same as sharing a meaning.
          *
          * Keep this as its own constant: tying the decision to VERSION made
          * "silently wipe every saved layout" the automatic consequence of any
          * future version bump.
          */
-        private const val OLDEST_READABLE = 3
+        private const val OLDEST_READABLE = 4
 
         fun fromJson(s: String?): PadLayout {
             if (s.isNullOrBlank()) return PadLayout()

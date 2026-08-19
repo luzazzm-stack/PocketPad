@@ -39,26 +39,28 @@ class PadLayoutTest {
     }
 
     @Test
-    fun `v3 layouts survive because the schema did not change`() {
-        // v3 shipped in 0.5 with the same element map; only the anchors moved.
+    fun `v3 layouts reset because the anchors moved under them`() {
+        // v3 shares v4's JSON shape, which is why this was originally kept —
+        // but the same release re-anchored every control from centre-relative
+        // to edge-relative, so a stored offset now points somewhere else.
+        // NON-ZERO offsets on purpose: x=0,y=0 is the one case where an anchor
+        // change is invisible, and asserting on it proves nothing.
         val v3 = JSONObject()
             .put("v", 3)
             .put(
                 "els",
                 JSONObject().put(
-                    PadElement.RSTICK.name,
-                    JSONObject().put("x", 0).put("y", 0).put("s", 1.1).put("on", false),
+                    PadElement.LSTICK.name,
+                    JSONObject().put("x", 120).put("y", 60).put("s", 1.1).put("on", true),
                 ),
             )
             .toString()
 
         val loaded = PadLayout.fromJson(v3)
 
-        assertFalse(
-            "a v3 player who hid the right stick must keep it hidden",
-            loaded.of(PadElement.RSTICK).visible,
-        )
-        assertEquals(1.1f, loaded.of(PadElement.RSTICK).scale, 0.001f)
+        assertEquals(PadLayout(), loaded)
+        assertEquals(0f, loaded.of(PadElement.LSTICK).x, 0.001f)
+        assertEquals(0f, loaded.of(PadElement.LSTICK).y, 0.001f)
     }
 
     @Test
