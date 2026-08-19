@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -192,10 +193,16 @@ fun GamepadScreen(
     var rStick by remember { mutableStateOf(Offset.Zero) }
 
     // A hidden control is not composed, so its onGloballyPositioned never fires
-    // again and its old rectangle would stay hit-testable. Drop every cached
-    // zone whenever the layout changes; the visible ones report again at once.
+    // again and its old rectangle would stay hit-testable. Drop the zones of
+    // controls that are now hidden — and ONLY those.
+    //
+    // This used to clear every zone. The layout could only change on the way
+    // back from the editor then, where nothing is held; the on-pad STICK chip
+    // changes it mid-game, and an empty map made the next frame compute "no
+    // buttons pressed" and transmit a release for everything the player was
+    // holding — a visible fire-stop-fire stutter while holding RT in a shooter.
     LaunchedEffect(lay) {
-        zones.clear()
+        zones.keys.filter { !lay.of(elementOf(it)).visible }.forEach { zones.remove(it) }
         if (!lay.of(PadElement.DPAD).visible) dpadZone = Rect.Zero
         if (!lay.of(PadElement.LSTICK).visible) lStickZone = Rect.Zero
         if (!lay.of(PadElement.RSTICK).visible) rStickZone = Rect.Zero
@@ -254,7 +261,13 @@ fun GamepadScreen(
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
-                        val down = event.changes.filter { it.pressed }
+                        // Skip anything a child already claimed. The top-bar
+                        // chips consume in the Main pass, which children see
+                        // first — without this a tap on STICK or the gear also
+                        // registered as whatever control sits under it, and a
+                        // press on that control could toggle the stick or open
+                        // Settings.
+                        val down = event.changes.filter { it.pressed && !it.isConsumed }
 
                         // ---- analog captures ----
                         // Whichever pointer lands on a stick or the cross OWNS
@@ -364,71 +377,60 @@ fun GamepadScreen(
             GearChip(onClick = onOpenSettings)
         }
 
-        // ---- shoulders, triggers, stick clicks, menu ----
-        // Drawn in PAD_SPECS order, the same order the editor iterates, so two
-        // overlapping controls stack the same way on both screens — otherwise
-        // the one that answers a touch differs between tuning and playing.
+        // ---- every control, in PAD_SPECS order ----
+        // One loop, the same order the editor iterates, so two overlapping
+        // controls stack identically on both screens. Splitting this into
+        // "buttons first, then the analog controls" is what made the previous
+        // claim false: play painted the sticks on top, the editor painted the
+        // buttons on top, so dragging L3 over a stick looked one way while
+        // tuning and behaved the other way while playing.
         PAD_SPECS.keys.forEach { element ->
-            val ctl = controlOf(element) ?: return@forEach
-            PlacedButton(ctl, element, lay, pressed) { zones[ctl] = it }
-        }
+            val spec = specOf(element)
+            val l = lay.of(element).clampedTo(spec)
+            if (!l.visible) return@forEach
+            val place = Modifier.align(spec.align).placeElement(spec, l)
 
-        // ---- d-pad ----
-        val dpadSpec = specOf(PadElement.DPAD)
-        val dpadL = lay.of(PadElement.DPAD).clampedTo(dpadSpec)
-        if (dpadL.visible) {
-            DpadCross(
-                size = DPAD_BASE * dpadL.scale,
-                current = dpad,
-                modifier = Modifier
-                    .align(dpadSpec.align)
-                    .placeElement(dpadSpec, dpadL)
-                    .onGloballyPositioned { dpadZone = it.boundsInRoot() },
-            )
-        }
+            when (element) {
+                PadElement.DPAD -> DpadCross(
+                    size = DPAD_BASE * l.scale,
+                    current = dpad,
+                    modifier = place.onGloballyPositioned { dpadZone = it.boundsInRoot() },
+                )
 
-        // ---- left stick: movement ----
-        val lSpec = specOf(PadElement.LSTICK)
-        val lL = lay.of(PadElement.LSTICK).clampedTo(lSpec)
-        if (lL.visible) {
-            AnalogStick(
-                size = STICK_BASE * lL.scale,
-                knob = lStick,
-                label = "L",
-                modifier = Modifier
-                    .align(lSpec.align)
-                    .placeElement(lSpec, lL)
-                    .onGloballyPositioned { lStickZone = it.boundsInRoot() },
-            )
-        }
+                PadElement.LSTICK -> AnalogStick(
+                    size = STICK_BASE * l.scale,
+                    knob = lStick,
+                    label = "L",
+                    modifier = place.onGloballyPositioned { lStickZone = it.boundsInRoot() },
+                )
 
-        // ---- right stick: camera and aim ----
-        val rSpec = specOf(PadElement.RSTICK)
-        val rL = lay.of(PadElement.RSTICK).clampedTo(rSpec)
-        if (rL.visible) {
-            AnalogStick(
-                size = STICK_BASE * rL.scale,
-                knob = rStick,
-                label = "R",
-                modifier = Modifier
-                    .align(rSpec.align)
-                    .placeElement(rSpec, rL)
-                    .onGloballyPositioned { rStickZone = it.boundsInRoot() },
-            )
-        }
+                PadElement.RSTICK -> AnalogStick(
+                    size = STICK_BASE * l.scale,
+                    knob = rStick,
+                    label = "R",
+                    modifier = place.onGloballyPositioned { rStickZone = it.boundsInRoot() },
+                )
 
-        // ---- face cluster ----
-        val faceSpec = specOf(PadElement.FACE)
-        val faceL = lay.of(PadElement.FACE).clampedTo(faceSpec)
-        if (faceL.visible) {
-            FaceCluster(
-                buttonSize = FACE_BUTTON_BASE * faceL.scale,
-                pressed = pressed,
-                onZone = { ctl, rect -> zones[ctl] = rect },
-                modifier = Modifier
-                    .align(faceSpec.align)
-                    .placeElement(faceSpec, faceL),
-            )
+                PadElement.FACE -> FaceCluster(
+                    buttonSize = FACE_BUTTON_BASE * l.scale,
+                    pressed = pressed,
+                    onZone = { ctl, rect -> zones[ctl] = rect },
+                    modifier = place,
+                )
+
+                else -> {
+                    val ctl = controlOf(element) ?: return@forEach
+                    val m = buttonMetricsOf(element) ?: return@forEach
+                    DepthButton(
+                        element.name,
+                        pressed = ctl in pressed,
+                        place
+                            .size(m.width * l.scale, m.height * l.scale)
+                            .onGloballyPositioned { zones[ctl] = it.boundsInRoot() },
+                        if (m.pill) RoundedCornerShape(50) else RoundedCornerShape(11.dp),
+                    )
+                }
+            }
         }
     }
 }
@@ -638,13 +640,17 @@ fun FaceCluster(
             PadControl.A in pressed,
             Modifier.align(Alignment.BottomCenter)
                 .onGloballyPositioned { onZone?.invoke(PadControl.A, it.boundsInRoot()) })
+        // AbsoluteAlignment, not CenterStart/CenterEnd: supportsRtl is true, and
+        // in Arabic or Hebrew the direction-aware variants swap X and B - the
+        // two most-used buttons - while onZone still reports them by their old
+        // names, so nothing else looks wrong. A controller does not mirror.
         FaceButton("X", buttonSize, Color(0xFF95BCFF), Color(0xFF6E96EC),
             PadControl.X in pressed,
-            Modifier.align(Alignment.CenterStart)
+            Modifier.align(AbsoluteAlignment.CenterLeft)
                 .onGloballyPositioned { onZone?.invoke(PadControl.X, it.boundsInRoot()) })
         FaceButton("B", buttonSize, Color(0xFFFA8FA5), Color(0xFFEE607C),
             PadControl.B in pressed,
-            Modifier.align(Alignment.CenterEnd)
+            Modifier.align(AbsoluteAlignment.CenterRight)
                 .onGloballyPositioned { onZone?.invoke(PadControl.B, it.boundsInRoot()) })
     }
 }

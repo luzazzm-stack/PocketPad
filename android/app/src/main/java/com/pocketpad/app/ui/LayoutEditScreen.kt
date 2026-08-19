@@ -74,28 +74,6 @@ fun LayoutEditScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Presets live at the top, clear of the bottom bar, because they are a
-        // "start from here" action rather than a per-control one.
-        Column(
-            Modifier.align(Alignment.TopCenter).padding(top = 2.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                PadPreset.entries.forEachIndexed { i, preset ->
-                    PresetChip(
-                        number = i + 1,
-                        blurb = preset.blurb,
-                    ) { lay = presetLayout(preset) }
-                }
-            }
-            Text(
-                "pick a preset, or drag any control · ‹ › selects · then resize or hide",
-                color = Color(0xFF565F89),
-                fontSize = 9.5.sp,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-        }
-
         order.forEach { element ->
             val l = lay.of(element).clampedTo(specOf(element))
             Editable(
@@ -129,6 +107,31 @@ fun LayoutEditScreen(
                     }
                 }
             }
+        }
+
+        // Composed AFTER the draggable controls, not before. A Box hit-tests
+        // its children in reverse draw order and stops at the first one with a
+        // pointer handler, so while these sat first every tap aimed at a chip
+        // was swallowed by whatever control overlapped it — and worse, it
+        // started dragging that control instead.
+        Column(
+            Modifier.align(Alignment.TopCenter).padding(top = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                PadPreset.entries.forEachIndexed { i, preset ->
+                    PresetChip(
+                        number = i + 1,
+                        blurb = preset.blurb,
+                    ) { lay = presetLayout(preset) }
+                }
+            }
+            Text(
+                "pick a preset, or drag any control · ‹ › selects · then resize or hide",
+                color = Color(0xFF565F89),
+                fontSize = 9.5.sp,
+                modifier = Modifier.padding(top = 2.dp),
+            )
         }
 
         // ---- bottom bar: the selected control's size and visibility ----

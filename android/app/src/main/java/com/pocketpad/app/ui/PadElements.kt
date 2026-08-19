@@ -71,10 +71,13 @@ val PAD_SPECS: Map<PadElement, ElementSpec> = linkedMapOf(
         "Buttons", AbsoluteAlignment.TopRight, padRight = 28.dp, padTop = 54.dp,
         xRange = -380f..26f, yRange = -46f..190f,
     ),
-    // Shoulders, triggers and stick clicks along the top edge. L3/R3 live here
-    // rather than at the bottom because the editor's bar covers the bottom
-    // strip, and they ship hidden — a control you cannot see or tap is a
-    // control you can never switch back on.
+    // Shoulders and triggers along the top edge.
+    //
+    // Nothing else goes up here. The top bar (Mouse chip, latency, STICK chip,
+    // gear) is centred and about 250 dp wide, so on a 640 dp landscape phone it
+    // spans roughly x 195..445 — LT already reaches 198. A control parked at
+    // x 208 sits underneath those chips, and a touch can then hit both: tapping
+    // STICK would also fire a stick click at the PC.
     PadElement.LB to ElementSpec(
         "LB", AbsoluteAlignment.TopLeft, padLeft = 24.dp, padTop = 10.dp,
         xRange = -16f..400f, yRange = -6f..250f,
@@ -82,10 +85,6 @@ val PAD_SPECS: Map<PadElement, ElementSpec> = linkedMapOf(
     PadElement.LT to ElementSpec(
         "LT", AbsoluteAlignment.TopLeft, padLeft = 120.dp, padTop = 10.dp,
         xRange = -112f..400f, yRange = -6f..250f,
-    ),
-    PadElement.L3 to ElementSpec(
-        "L3 (stick click)", AbsoluteAlignment.TopLeft, padLeft = 208.dp, padTop = 12.dp,
-        xRange = -200f..400f, yRange = -8f..250f,
     ),
     PadElement.RB to ElementSpec(
         "RB", AbsoluteAlignment.TopRight, padRight = 24.dp, padTop = 10.dp,
@@ -95,10 +94,6 @@ val PAD_SPECS: Map<PadElement, ElementSpec> = linkedMapOf(
         "RT", AbsoluteAlignment.TopRight, padRight = 120.dp, padTop = 10.dp,
         xRange = -400f..112f, yRange = -6f..250f,
     ),
-    PadElement.R3 to ElementSpec(
-        "R3 (stick click)", AbsoluteAlignment.TopRight, padRight = 208.dp, padTop = 12.dp,
-        xRange = -400f..200f, yRange = -8f..250f,
-    ),
     // Menu pair on the bottom centre, between the two sticks.
     PadElement.BACK to ElementSpec(
         "BACK", Alignment.BottomCenter, padBottom = 14.dp, baseX = (-56).dp,
@@ -107,6 +102,18 @@ val PAD_SPECS: Map<PadElement, ElementSpec> = linkedMapOf(
     PadElement.START to ElementSpec(
         "START", Alignment.BottomCenter, padBottom = 14.dp, baseX = 56.dp,
         xRange = -240f..240f, yRange = -250f..10f,
+    ),
+    // Stick clicks sit one row above the menu pair. The bottom corners belong
+    // to the sticks and the top edge belongs to the bar, so this strip is the
+    // only clear space left. They ship hidden, and the editor's arrows select
+    // them without needing a tap, so the bar covering part of them is fine.
+    PadElement.L3 to ElementSpec(
+        "L3 (stick click)", Alignment.BottomCenter, padBottom = 54.dp, baseX = (-48).dp,
+        xRange = -240f..240f, yRange = -250f..46f,
+    ),
+    PadElement.R3 to ElementSpec(
+        "R3 (stick click)", Alignment.BottomCenter, padBottom = 54.dp, baseX = 48.dp,
+        xRange = -240f..240f, yRange = -250f..46f,
     ),
 )
 

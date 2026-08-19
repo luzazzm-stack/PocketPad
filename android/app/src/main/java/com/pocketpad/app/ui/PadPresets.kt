@@ -5,6 +5,18 @@ import com.pocketpad.app.settings.PadElement
 import com.pocketpad.app.settings.PadLayout
 
 /**
+ * A control at its default size, shown or hidden.
+ *
+ * Never build these with a bare `ElementLayout(visible = ...)`: that carries
+ * ElementLayout's own `scale = 1f` and quietly overrides DEFAULT_SCALE, so a
+ * stick hidden by a preset came back at 148 dp instead of 130 dp when the
+ * player switched it on again — straight into the face cluster, where
+ * overButton() then refuses it a drag.
+ */
+private fun shown(e: PadElement) = PadLayout.defaultFor(e).copy(visible = true)
+private fun hidden(e: PadElement) = PadLayout.defaultFor(e).copy(visible = false)
+
+/**
  * Ready-made pads, one per kind of game.
  *
  * Which controls a title actually uses varies more than any single arrangement
@@ -39,10 +51,10 @@ fun presetLayout(p: PadPreset): PadLayout = when (p) {
         mapOf(
             PadElement.DPAD to ElementLayout(y = 45f, scale = 0.90f),
             PadElement.FACE to ElementLayout(y = 40f, scale = 1.00f),
-            PadElement.LSTICK to ElementLayout(visible = false),
-            PadElement.RSTICK to ElementLayout(visible = false),
-            PadElement.L3 to ElementLayout(visible = false),
-            PadElement.R3 to ElementLayout(visible = false),
+            PadElement.LSTICK to hidden(PadElement.LSTICK),
+            PadElement.RSTICK to hidden(PadElement.RSTICK),
+            PadElement.L3 to hidden(PadElement.L3),
+            PadElement.R3 to hidden(PadElement.R3),
         )
     )
 
@@ -55,9 +67,9 @@ fun presetLayout(p: PadPreset): PadLayout = when (p) {
     PadPreset.LEFT_STICK -> PadLayout(
         mapOf(
             PadElement.FACE to ElementLayout(y = 35f, scale = 1.10f),
-            PadElement.RSTICK to ElementLayout(visible = false),
-            PadElement.L3 to ElementLayout(visible = false),
-            PadElement.R3 to ElementLayout(visible = false),
+            PadElement.RSTICK to hidden(PadElement.RSTICK),
+            PadElement.L3 to hidden(PadElement.L3),
+            PadElement.R3 to hidden(PadElement.R3),
         )
     )
 
@@ -65,8 +77,8 @@ fun presetLayout(p: PadPreset): PadLayout = when (p) {
     // triggers.
     PadPreset.EVERYTHING -> PadLayout(
         mapOf(
-            PadElement.L3 to ElementLayout(visible = true),
-            PadElement.R3 to ElementLayout(visible = true),
+            PadElement.L3 to shown(PadElement.L3),
+            PadElement.R3 to shown(PadElement.R3),
         )
     )
 }
