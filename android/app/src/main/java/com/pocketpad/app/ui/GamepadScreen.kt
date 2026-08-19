@@ -91,32 +91,72 @@ private fun maskOf(set: Set<PadControl>): Int {
 }
 
 /**
- * Direction from a position inside the d-pad square. Cardinals get 60°
- * windows and diagonals 30°: thumbs aim straight far more often than
+ * Angular window of each direction, in degrees clockwise from Up. Cardinals
+ * get 60° and diagonals 30°: thumbs aim straight far more often than
  * diagonally, so "up" must not slip into a side direction.
  */
-private fun dpadDirAt(local: Offset, sizePx: Float): Dpad {
+private val DPAD_WINDOWS: List<Pair<Dpad, ClosedFloatingPointRange<Float>>> = listOf(
+    Dpad.UP_RIGHT to 30f..60f,
+    Dpad.RIGHT to 60f..120f,
+    Dpad.DOWN_RIGHT to 120f..150f,
+    Dpad.DOWN to 150f..210f,
+    Dpad.DOWN_LEFT to 210f..240f,
+    Dpad.LEFT to 240f..300f,
+    Dpad.UP_LEFT to 300f..330f,
+    // UP is the wrap-around remainder, 330..360 and 0..30.
+)
+
+/**
+ * How far past a window's edge the thumb must travel before the direction
+ * changes, once that direction is held.
+ *
+ * Without this a thumb resting within a degree of a boundary flips direction
+ * at the touch-sampling rate — hundreds of changes a second, each one a real
+ * edge the pacer must hold for 24 ms. That both floods the wire and makes the
+ * game read a direction the player never aimed for. 8° is far below a
+ * deliberate re-aim and far above the jitter of a still thumb.
+ */
+internal const val DPAD_HYSTERESIS_DEG = 8f
+
+/** Deadzone as a fraction of the control: leave it at 0.14, return at 0.10. */
+private const val DPAD_DEADZONE = 0.14f
+private const val DPAD_DEADZONE_RETURN = 0.10f
+
+private fun windowOf(d: Dpad): ClosedFloatingPointRange<Float>? =
+    DPAD_WINDOWS.firstOrNull { it.first == d }?.second
+
+/** True if [deg] is inside [d]'s window widened by [margin], wrap included. */
+private fun inWindow(deg: Float, d: Dpad, margin: Float): Boolean {
+    val w = windowOf(d)
+        ?: return deg >= 330f - margin || deg < 30f + margin // UP wraps 0°
+    return deg >= w.start - margin && deg < w.endInclusive + margin
+}
+
+/**
+ * Direction from a position inside the d-pad square, biased towards keeping
+ * [previous] so a resting thumb cannot chatter between two directions.
+ */
+internal fun dpadDirAt(local: Offset, sizePx: Float, previous: Dpad): Dpad {
     // Before the first layout pass the zone is Rect.Zero. The deadzone test
-    // below compares against sizePx * 0.14, which no non-negative hypot can be
-    // under at size 0, so without this guard an early touch would fall through
-    // to a real direction.
+    // below compares against a fraction of sizePx, which no non-negative
+    // hypot can be under at size 0, so without this guard an early touch would
+    // fall through to a real direction.
     if (sizePx <= 0f) return Dpad.NEUTRAL
     val c = sizePx / 2f
     val dx = local.x - c
     val dy = local.y - c
-    if (hypot(dx, dy) < sizePx * 0.14f) return Dpad.NEUTRAL
-    var deg = Math.toDegrees(atan2(dx, -dy).toDouble())
-    if (deg < 0) deg += 360.0
-    return when {
-        deg >= 330 || deg < 30 -> Dpad.UP
-        deg < 60 -> Dpad.UP_RIGHT
-        deg < 120 -> Dpad.RIGHT
-        deg < 150 -> Dpad.DOWN_RIGHT
-        deg < 210 -> Dpad.DOWN
-        deg < 240 -> Dpad.DOWN_LEFT
-        deg < 300 -> Dpad.LEFT
-        else -> Dpad.UP_LEFT
-    }
+    val held = previous != Dpad.NEUTRAL
+    // A thumb parked at the deadzone edge would otherwise chatter in and out
+    // of NEUTRAL exactly as it chatters between two directions.
+    val deadzone = if (held) DPAD_DEADZONE_RETURN else DPAD_DEADZONE
+    if (hypot(dx, dy) < sizePx * deadzone) return Dpad.NEUTRAL
+
+    var deg = Math.toDegrees(atan2(dx, -dy).toDouble()).toFloat()
+    if (deg < 0) deg += 360f
+    if (held && inWindow(deg, previous, DPAD_HYSTERESIS_DEG)) return previous
+    return DPAD_WINDOWS.firstOrNull { (_, w) -> deg >= w.start && deg < w.endInclusive }
+        ?.first
+        ?: Dpad.UP
 }
 
 /** Knob radius as a fraction of the stick's radius; the rest is travel. */
@@ -218,13 +258,17 @@ fun GamepadScreen(
     // mid-press while the sender loop keeps transmitting the last state at
     // 125 Hz, which reads on the PC as a jammed button. Hand over an explicit
     // neutral on the way out.
+    //
+    // releasePad, not setPadState: opening Settings does not switch modes or
+    // drop the TCP connection, so nothing else would ever release the button —
+    // and a queued neutral would sit behind whatever the pacer still holds.
     DisposableEffect(connection) {
         onDispose {
             pressed = emptySet()
             dpad = Dpad.NEUTRAL
             lStick = Offset.Zero
             rStick = Offset.Zero
-            connection.setPadState(PadState())
+            connection.releasePad()
         }
     }
 
@@ -262,7 +306,7 @@ fun GamepadScreen(
                 dpad = Dpad.NEUTRAL
                 lStick = Offset.Zero
                 rStick = Offset.Zero
-                connection.setPadState(PadState())
+                connection.releasePad()
 
                 awaitPointerEventScope {
                     while (true) {
@@ -299,7 +343,11 @@ fun GamepadScreen(
                         if (dpadPointer == null) dpadPointer = claimFor(dpadZone)
 
                         val newDpad = down.firstOrNull { it.id == dpadPointer }?.let {
-                            dpadDirAt(boxOrigin + it.position - dpadZone.topLeft, dpadZone.width)
+                            dpadDirAt(
+                                boxOrigin + it.position - dpadZone.topLeft,
+                                dpadZone.width,
+                                dpad,
+                            )
                         } ?: Dpad.NEUTRAL
                         val newL = down.firstOrNull { it.id == lStickPointer }?.let {
                             stickVecAt(boxOrigin + it.position - lStickZone.topLeft, lStickZone.width)
@@ -646,6 +694,37 @@ fun FaceCluster(
     }
 }
 
+/**
+ * The press visual — shrink and drop the shadow — expressed once.
+ *
+ * [pressed] is read INSIDE the graphicsLayer lambda, which is the whole point:
+ * a press then updates layer properties in the draw phase, with no
+ * recomposition and no relayout. Hoisting that call out to the composable body
+ * would restore per-press recomposition of the pad, which is what dropped taps
+ * on a busy main thread. Every pressable control routes through here so the
+ * rule cannot hold on one path and lapse on another.
+ *
+ * Callers keep their own .onGloballyPositioned OUTSIDE this — hit zones must
+ * stay the unpressed bounds. A face button reports a rect 7% smaller while
+ * held otherwise, which narrows the overlap lens that lets one thumb press A
+ * and B together.
+ */
+private fun Modifier.pressEffect(
+    pressed: () -> Boolean,
+    shape: Shape,
+    pressedScale: Float,
+    restElevation: Dp,
+    pressedElevation: Dp,
+): Modifier = graphicsLayer {
+    val p = pressed()
+    val s = if (p) pressedScale else 1f
+    scaleX = s
+    scaleY = s
+    shadowElevation = (if (p) pressedElevation else restElevation).toPx()
+    this.shape = shape
+    clip = true
+}
+
 @Composable
 private fun FaceButton(
     label: String,
@@ -655,21 +734,10 @@ private fun FaceButton(
     pressed: () -> Boolean,
     modifier: Modifier,
 ) {
-    // Scale, shadow and clip live in one graphicsLayer whose lambda reads
-    // [pressed] — a press updates layer properties without recomposition or
-    // relayout, which also keeps onGloballyPositioned (the hit zones) quiet.
     Box(
         modifier
             .size(size)
-            .graphicsLayer {
-                val p = pressed()
-                val s = if (p) 0.93f else 1f
-                scaleX = s
-                scaleY = s
-                shadowElevation = (if (p) 2.dp else 7.dp).toPx()
-                shape = CircleShape
-                clip = true
-            }
+            .pressEffect(pressed, CircleShape, 0.93f, 7.dp, 2.dp)
             .background(Brush.verticalGradient(listOf(top, bottom))),
         contentAlignment = Alignment.Center,
     ) {
@@ -686,20 +754,10 @@ internal fun DepthButton(
     modifier: Modifier,
     shape: Shape,
 ) {
-    // Same draw-phase pattern as FaceButton: the press visual (scale, shadow,
-    // fill colour) reads [pressed] in layer/draw lambdas, so pressing costs no
-    // recomposition.
     Box(
         modifier
-            .graphicsLayer {
-                val p = pressed()
-                val s = if (p) 0.95f else 1f
-                scaleX = s
-                scaleY = s
-                shadowElevation = (if (p) 1.dp else 4.dp).toPx()
-                this.shape = shape
-                clip = true
-            }
+            .pressEffect(pressed, shape, 0.95f, 4.dp, 1.dp)
+            // Fill in the draw phase too, for the same reason.
             .drawBehind {
                 drawRect(if (pressed()) Color(0xFF3D4569) else Color(0xFF262A3A))
             },

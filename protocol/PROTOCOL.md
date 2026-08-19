@@ -12,9 +12,18 @@ Both sides MUST implement exactly this. Any change bumps `PROTOCOL_VERSION`.
 
 ## State packet — phone → PC, 16 bytes, sent at 125 Hz
 
-Sent every 8 ms while connected, and immediately on any input change.
-UDP: one packet per datagram. Receiver drops any packet whose `seq` is older
-than the newest seen (accounting for u16 wraparound).
+Sent every 8 ms while connected. UDP: one packet per datagram. Receiver drops
+any packet whose `seq` is older than the newest seen (accounting for u16
+wraparound).
+
+**Senders MUST hold every button and d-pad change for at least 24 ms** (three
+packets) before that same control may change again, queueing any faster input
+rather than dropping or merging it. A press carried by a single packet is
+shorter than a 60 Hz game's input frame, so the game can poll straight past
+it, and one lost datagram erases it outright — a sender that just samples its
+latest state per tick silently drops fast taps and turns three taps into one.
+Controls pace independently: a d-pad roll must never delay a button.
+The same rule applies to the trackpad packet's buttons.
 
 | Offset | Size | Field    | Notes |
 |--------|------|----------|-------|

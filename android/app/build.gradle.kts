@@ -80,4 +80,6 @@ dependencies {
     // "not mocked". PadLayout stores its blob as JSON, so its tests need the
     // real implementation on the test classpath.
     testImplementation("org.json:json:20240303")
+    // PadConnectionTest runs the real sender against loopback sockets.
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 }

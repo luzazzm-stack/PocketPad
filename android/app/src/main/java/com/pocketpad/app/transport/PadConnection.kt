@@ -1,5 +1,6 @@
 package com.pocketpad.app.transport
 
+import com.pocketpad.app.protocol.Dpad
 import com.pocketpad.app.protocol.MousePacket
 import com.pocketpad.app.protocol.MouseState
 import com.pocketpad.app.protocol.PadState
@@ -55,34 +56,49 @@ class PadConnection(
     private val mouse = AtomicReference(MouseState())
 
     /**
-     * Buttons pressed by a tap rather than held by a finger. The sender clears
-     * each one only after it has actually gone out in a packet — a tap that set
-     * and cleared the bit between two 8 ms samples would otherwise never be
-     * transmitted at all, and the click would be silently lost.
-     */
-    private val clickLatch = AtomicInteger(0)
-
-    /**
-     * Orders and paces every button/d-pad edge onto the wire. The sender
-     * samples [state] for the sticks (latest wins on a continuous axis), but
-     * buttons and d-pad go through this so a burst of taps comes out as the
-     * same number of distinct, game-visible presses — see [EdgePacer].
+     * Paces pad button and d-pad edges onto the wire. The sender samples
+     * [state] for the sticks (latest wins on a continuous axis), but buttons
+     * and d-pad go through this so a burst of taps comes out as the same
+     * number of distinct, game-visible presses — see [EdgePacer].
      */
     private val pacer = EdgePacer()
+
+    /**
+     * The same pacing for mouse buttons, which need it just as badly: a
+     * double-click to launch a game is two taps inside a few tens of ms, and
+     * the PC injects a click per received packet with no retransmit.
+     */
+    private val mousePacer = EdgePacer()
+
+    /** Mouse buttons held by a finger, as opposed to tapped. */
+    private val mouseHeld = AtomicInteger(0)
 
     fun setMode(m: Mode) {
         // Drop everything held so nothing sticks down across the switch.
         state.set(PadState())
         mouse.set(MouseState())
-        clickLatch.set(0)
-        pacer.reset()
+        mouseHeld.set(0)
+        pacer.releaseAll()
+        mousePacer.releaseAll()
         mode.set(m)
     }
 
-    /** Publish the pad state. Button and d-pad edges are queued, never lost. */
+    /** Publish the pad state. Button and d-pad edges are paced, never lost. */
     fun setPadState(s: PadState) {
         state.set(s)
         pacer.offer(s.buttons, s.dpad)
+    }
+
+    /**
+     * Release every pad control on the wire immediately.
+     *
+     * Leaving the pad screen must not leave a button held: the sender keeps
+     * transmitting whatever the pacer last emitted, and the PC only drops
+     * everything on TCP disconnect — which opening Settings is not.
+     */
+    fun releasePad() {
+        state.set(PadState())
+        pacer.releaseAll()
     }
 
     /** Accumulate pointer movement (pixels) until the next packet goes out. */
@@ -95,23 +111,23 @@ class PadConnection(
         mouse.getAndUpdate { it.copy(wheel = it.wheel + notches) }
     }
 
+    /** A button held down by a finger; the finger's release ends it. */
     fun setMouseButton(bit: Int, pressed: Boolean) {
-        // An explicit hold outranks a tap latch, so releasing the finger — not
-        // the sender — is what ends the press.
-        if (pressed) clickLatch.getAndUpdate { it and bit.inv() }
-        mouse.getAndUpdate {
-            it.copy(buttons = if (pressed) it.buttons or bit else it.buttons and bit.inv())
+        val held = mouseHeld.updateAndGet {
+            if (pressed) it or bit else it and bit.inv()
         }
+        mousePacer.offer(held, Dpad.NEUTRAL)
     }
 
     /**
-     * A tap: press [bit] now and let the sender release it once it has been
-     * transmitted. Use this instead of an immediate press/release pair, which
-     * the 125 Hz sampler almost always misses entirely.
+     * A tap: one press and its release, queued as a pair. The pacer holds the
+     * press on the wire long enough for the PC to see it, so a tap shorter
+     * than the send period still lands — and two fast taps stay two clicks.
      */
     fun clickMouse(bit: Int) {
-        clickLatch.getAndUpdate { it or bit }
-        mouse.getAndUpdate { it.copy(buttons = it.buttons or bit) }
+        val held = mouseHeld.get()
+        mousePacer.offer(held or bit, Dpad.NEUTRAL)
+        mousePacer.offer(held, Dpad.NEUTRAL)
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -180,22 +196,15 @@ class PadConnection(
                             send(StatePacket.encode(
                                 seq, snap.copy(buttons = btns, dpad = dp), player, padBuf))
                         } else {
-                            // Deltas are consumed: take them and zero them atomically.
+                            // Deltas are consumed: take them and zero them
+                            // atomically. Buttons come from the pacer, which
+                            // holds each click long enough to survive the trip.
                             val snapshot = mouse.getAndUpdate { it.consumed() }
-                            send(MousePacket.encode(seq, snapshot, player, mouseBuf))
-                            // Release a tapped button only once the packet
-                            // carrying it has gone out, so the PC always sees
-                            // the press for at least one frame before the
-                            // release. Masking against what was actually sent
-                            // avoids dropping a tap that landed after the
-                            // snapshot was taken.
-                            val sent = clickLatch.get() and snapshot.buttons
-                            if (sent != 0) {
-                                clickLatch.getAndUpdate { it and sent.inv() }
-                                mouse.getAndUpdate { it.copy(buttons = it.buttons and sent.inv()) }
-                            }
+                            val (btns, _) = mousePacer.tick()
+                            send(MousePacket.encode(
+                                seq, snapshot.copy(buttons = btns), player, mouseBuf))
                         }
-                        delay(8) // 125 Hz
+                        delay(EdgePacer.SEND_PERIOD_MS)
                     }
                 }
 

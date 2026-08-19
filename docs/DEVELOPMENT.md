@@ -80,9 +80,12 @@ Copy-Item android\app\build\outputs\apk\release\app-release.apk $env:TEMP\Pocket
 gh release upload v0.6 $env:TEMP\PocketPad.apk --clobber
 ```
 
-Keep three version numbers in step when shipping: `versionCode`/`versionName`
+Keep four version numbers in step when shipping: `versionCode`/`versionName`
 in `android\app\build.gradle.kts`, `AppVersion` in `installer\PocketPad.iss`,
-and the tag.
+the footer of `docs\manual.html`, and the tag. The manual is easy to forget
+and the most visible: it is copied into the phone app's Help screen, next to
+the PC exe, and onto the Start Menu, so a stale number there is what every
+user reads when reporting a bug.
 
 Updating machines that already have PocketPad: run the new Setup.exe — it
 upgrades in place (same AppId). Phones: install the new APK over the old one.
