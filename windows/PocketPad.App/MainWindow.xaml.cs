@@ -49,7 +49,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            _session = new LinkSession();
+            _session = new LinkSession(PairingCode.LoadOrCreate());
         }
         catch (LinkSession.DriverMissingException)
         {

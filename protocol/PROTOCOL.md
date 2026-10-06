@@ -110,4 +110,27 @@ both ends.
 ## Pairing QR code
 
 PC app displays a QR encoding: `pocketpad://pair?host=<ip>&tcp=46822&token=<8-char token>`
-Token is random per PC-app launch, shown as text beside the QR for manual entry.
+The token is shown as text beside the QR for manual entry. The ship app creates
+it once and keeps it (`%LOCALAPPDATA%PocketPadpairing-code.txt`), so a paired
+phone stays paired across PC restarts; dev tools may still use a per-launch one.
+
+## Discovery — UDP 46821, 8 bytes
+
+Lets a paired phone find its PC again after the PC's address changes (new DHCP
+lease, other network). The phone sends a **request** to `255.255.255.255` and
+each interface's subnet broadcast on the state port; the PC holding the
+matching token answers with a **reply** to the sender's address and port. The
+phone dials the address the reply came from. The token never goes on the wire,
+only its fingerprint, and a PC stays silent for any other fingerprint.
+
+| Offset | Size | Field       | Notes |
+|--------|------|-------------|-------|
+| 0      | 1    | magic       | `0x44` ('D') |
+| 1      | 1    | version     | `0x01` |
+| 2      | 1    | kind        | `0` = request (phone → broadcast), `1` = reply (PC → phone) |
+| 3      | 1    | reserved    | `0x00` |
+| 4      | 4    | fingerprint | first 4 bytes of SHA-256(UTF-8 token) |
+
+Phones send discovery only after a connect to the saved address fails, re-send
+every 300 ms, and give up after 2.5 s. A PC that predates this section simply
+ignores the unknown magic byte.

@@ -33,6 +33,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,6 +57,7 @@ import com.pocketpad.app.haptics.LocalHaptics
 import com.pocketpad.app.settings.AppSettings
 import com.pocketpad.app.settings.PadElement
 import com.pocketpad.app.settings.SettingsStore
+import com.pocketpad.app.transport.Discovery
 import com.pocketpad.app.transport.PadConnection
 import com.pocketpad.app.ui.GamepadScreen
 import com.pocketpad.app.ui.HelpScreen
@@ -75,7 +78,7 @@ enum class Screen { PLAY, SETTINGS, EDIT_LAYOUT }
 
 sealed interface UiState {
     data class Idle(val error: String? = null) : UiState
-    data object Connecting : UiState
+    data class Connecting(val message: String = "Connecting…") : UiState
     data class Playing(
         val connection: PadConnection,
         val latencyMs: Long?,
@@ -93,7 +96,7 @@ private fun friendlyError(kind: String, detail: String?): String = when {
     kind == "rejected" && detail == "version" ->
         "The PC app is a different version. Update both apps."
     kind == "failed" ->
-        "Couldn't find the PC. Check both are on the same Wi-Fi, and re-read the address."
+        "Couldn't find the PC. Check PocketPad for PC is open and both are on the same Wi-Fi."
     else -> "Connection lost. Open the PC app and connect again."
 }
 
@@ -131,8 +134,12 @@ class MainActivity : ComponentActivity() {
                     store.save(s)
                 }
 
-                fun connect(host: String, token: String) {
-                    ui = UiState.Connecting
+                val scope = rememberCoroutineScope()
+
+                // [searched]: this attempt already came from discovery, so a
+                // failure is final instead of searching again in a loop.
+                fun connect(host: String, token: String, searched: Boolean = false) {
+                    ui = UiState.Connecting()
                     prefs.edit().putString("host", host).putString("token", token).apply()
                     val name = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
                     val conn = PadConnection(host.trim(), token.trim(), name)
@@ -146,7 +153,17 @@ class MainActivity : ComponentActivity() {
                                 is PadConnection.Event.Rejected ->
                                     UiState.Idle(friendlyError("rejected", event.reason))
                                 is PadConnection.Event.Disconnected ->
-                                    if (ui is UiState.Connecting)
+                                    if (ui is UiState.Connecting && !searched && token.isNotBlank()) {
+                                        // Saved address is dead — the PC probably got a new
+                                        // one. Ask the Wi-Fi who holds our code (PROTOCOL.md
+                                        // "Discovery") and retry there.
+                                        scope.launch {
+                                            val found = Discovery.find(token)
+                                            if (found != null) connect(found, token, searched = true)
+                                            else ui = UiState.Idle(friendlyError("failed", event.error))
+                                        }
+                                        UiState.Connecting("Looking for your PC on this Wi-Fi…")
+                                    } else if (ui is UiState.Connecting)
                                         UiState.Idle(friendlyError("failed", event.error))
                                     else
                                         UiState.Idle(event.error?.let { friendlyError("lost", it) })
@@ -171,7 +188,7 @@ class MainActivity : ComponentActivity() {
                     is UiState.Connecting -> Box(
                         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
                         contentAlignment = Alignment.Center,
-                    ) { Text("Connecting…", color = Color(0xFF98A2C0)) }
+                    ) { Text(s.message, color = Color(0xFF98A2C0)) }
                     is UiState.Playing -> {
                         fun switchTo(m: PadConnection.Mode) {
                             s.connection.setMode(m)

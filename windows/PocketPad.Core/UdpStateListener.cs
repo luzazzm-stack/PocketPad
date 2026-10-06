@@ -25,9 +25,16 @@ public sealed class UdpStateListener : IDisposable
     /// <summary>UTC time of the last accepted packet; for disconnect timeouts.</summary>
     public DateTime LastPacketUtc { get; private set; } = DateTime.MinValue;
 
-    public UdpStateListener(int port = DefaultPort)
+    private readonly byte[]? _discoveryFingerprint;
+
+    /// <param name="discoveryFingerprint">
+    /// When set, answer discovery requests carrying this fingerprint
+    /// (PROTOCOL.md "Discovery") so a paired phone can find this PC again.
+    /// </param>
+    public UdpStateListener(int port = DefaultPort, byte[]? discoveryFingerprint = null)
     {
         _udp = new UdpClient(port);
+        _discoveryFingerprint = discoveryFingerprint;
     }
 
     /// <summary>Receive loop; run until cancellation. Safe to call once.</summary>
@@ -47,6 +54,18 @@ public sealed class UdpStateListener : IDisposable
             catch (SocketException)
             {
                 // Remote ICMP port-unreachable can surface here on Windows; keep listening.
+                continue;
+            }
+
+            if (_discoveryFingerprint is { } fp && Discovery.IsRequestFor(result.Buffer, fp))
+            {
+                try
+                {
+                    await _udp.SendAsync(Discovery.Encode(Discovery.KindReply, fp), result.RemoteEndPoint, ct)
+                        .ConfigureAwait(false);
+                }
+                catch (SocketException) { /* phone went away; it will retry */ }
+                catch (OperationCanceledException) { break; }
                 continue;
             }
 

@@ -30,7 +30,10 @@ public sealed class LinkSession : IDisposable
     private long _packets;
     private int _phoneCount;
 
-    /// <summary>Pairing token, regenerated per session (per app launch).</summary>
+    /// <summary>
+    /// Pairing token. Random per session unless the caller passes a persisted
+    /// one (the ship app does — see <see cref="PairingCode"/>).
+    /// </summary>
     public string Token { get; }
 
     /// <summary>Phone connected: (player, device name, remote address).</summary>
@@ -46,7 +49,7 @@ public sealed class LinkSession : IDisposable
 
     public int PhoneCount => Volatile.Read(ref _phoneCount);
 
-    public LinkSession()
+    public LinkSession(string? token = null)
     {
         try
         {
@@ -57,7 +60,7 @@ public sealed class LinkSession : IDisposable
             throw new DriverMissingException(e);
         }
 
-        Token = RandomNumberGenerator.GetHexString(8, lowercase: true);
+        Token = token ?? RandomNumberGenerator.GetHexString(8, lowercase: true);
 
         // Both listeners bind in their constructors, so either can throw
         // SocketException on a port clash. A faulting constructor hands the
@@ -76,7 +79,7 @@ public sealed class LinkSession : IDisposable
             pad0.Connect();
 
             control = new ControlServer(Token);
-            udp = new UdpStateListener();
+            udp = new UdpStateListener(discoveryFingerprint: Discovery.Fingerprint(Token));
         }
         catch
         {
@@ -160,11 +163,21 @@ public sealed class LinkSession : IDisposable
         }
         catch (SocketException) { /* offline — fall through */ }
 
+        // Offline (e.g. a phone hotspot with no internet): prefer a real LAN
+        // address over a 169.254.x.x self-assigned one, which no phone can reach.
         var host = Dns.GetHostEntry(Dns.GetHostName());
-        foreach (var ip in host.AddressList)
-            if (ip.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(ip))
-                return ip;
-        return IPAddress.Loopback;
+        var candidates = host.AddressList
+            .Where(ip => ip.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(ip))
+            .ToList();
+        return candidates.FirstOrDefault(ip => !IsLinkLocal(ip))
+            ?? candidates.FirstOrDefault()
+            ?? IPAddress.Loopback;
+    }
+
+    private static bool IsLinkLocal(IPAddress ip)
+    {
+        var b = ip.GetAddressBytes();
+        return b[0] == 169 && b[1] == 254;
     }
 
     /// <summary>QR payload the phone app understands (PROTOCOL.md pairing).</summary>
