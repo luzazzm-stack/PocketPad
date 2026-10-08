@@ -43,6 +43,11 @@ enum class PadPreset(val title: String, val blurb: String) {
     EVERYTHING("Layout 4", "Every control"),
 }
 
+/** What a fresh install starts with, and what "Reset all" goes back to: Layout 1. */
+val DEFAULT_PRESET = PadPreset.CLASSIC
+
+fun defaultLayout(): PadLayout = presetLayout(DEFAULT_PRESET)
+
 fun presetLayout(p: PadPreset): PadLayout = when (p) {
 
     // No sticks, so the cross and the buttons take the room they free up and

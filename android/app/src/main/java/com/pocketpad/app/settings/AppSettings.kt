@@ -2,6 +2,7 @@ package com.pocketpad.app.settings
 
 import android.content.SharedPreferences
 import org.json.JSONObject
+import com.pocketpad.app.ui.defaultLayout
 
 /**
  * Every control the player can move, resize and hide.
@@ -144,7 +145,7 @@ data class PadLayout(
 
 /** Everything the Settings screen controls. */
 data class AppSettings(
-    val layout: PadLayout = PadLayout(),
+    val layout: PadLayout = defaultLayout(),
     val haptics: Boolean = true,
     val hapticPercent: Int = 75, // 0–100% vibration power
     val mouseSensitivity: Float = 1.5f, // 0.5 slow … 3.0 fast
@@ -154,7 +155,8 @@ data class AppSettings(
 class SettingsStore(private val prefs: SharedPreferences) {
 
     fun load(): AppSettings = AppSettings(
-        layout = PadLayout.fromJson(prefs.getString("layout", null)),
+        // Nothing saved yet = fresh install: start on Layout 1.
+        layout = prefs.getString("layout", null)?.let(PadLayout::fromJson) ?: defaultLayout(),
         haptics = prefs.getBoolean("haptics", true),
         hapticPercent = when {
             prefs.contains("hapticPct") -> prefs.getInt("hapticPct", 75)

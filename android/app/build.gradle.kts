@@ -12,8 +12,8 @@ android {
         applicationId = "com.pocketpad.app"
         minSdk = 23 // Android 6.0
         targetSdk = 35
-        versionCode = 7
-        versionName = "0.6.3"
+        versionCode = 8
+        versionName = "0.6.4"
     }
 
     signingConfigs {

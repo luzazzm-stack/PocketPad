@@ -1,6 +1,7 @@
 # PocketPad — Step-by-step guide
 
 This guide is for everyone, even if you have never used GitHub before.
+**Prefer a web page?** The same guide with pictures: **https://luzazzm-stack.github.io/PocketPad/**
 You need **two things**: a **Windows PC** and an **Android phone**, on the **same Wi-Fi**.
 
 It takes about 5 minutes the first time. After that, playing is just: open the app on the PC → tap **Connect** on the phone.
@@ -35,10 +36,17 @@ You'll see this window. Keep it open while you play:
    *(file name: `PocketPad.apk`, about 2 MB)*
 
    *Easier way:* open this page on your phone by typing `github.com/luzazzm-stack/PocketPad` into the phone's browser.
-2. When the download finishes, tap **Open** (or open it from your **Downloads**).
-3. Your phone may say **"For your security, your phone is not allowed to install unknown apps from this source."**
-   Tap **Settings** → turn on **Allow from this source** → go back.
-4. Tap **Install**, then **Open**.
+2. Follow the screens below. The yellow ring shows what to tap.
+
+| 1 · Tap **Download anyway** | 2 · Tap **Open** | 3 · First time only: tap **Settings** | 4 · Turn on the switch, tap **Install** |
+|:-:|:-:|:-:|:-:|
+| <img src="docs/images/android-install/1-download-anyway.png" width="180" alt="File might be harmful, Download anyway"> | <img src="docs/images/android-install/2-open.png" width="180" alt="File downloaded, Open"> | <img src="docs/images/android-install/3-unknown-apps.png" width="180" alt="Not allowed to install unknown apps, Settings"> | <img src="docs/images/android-install/4-allow-and-install.png" width="180" alt="Allow from this source on, Install"> |
+
+| 5 · If asked: tap **Scan app** | 6 · Tap **Install** | 7 · Tap **Open** — done! |
+|:-:|:-:|:-:|
+| <img src="docs/images/android-install/5-scan-app.png" width="180" alt="Play Protect, Scan app"> | <img src="docs/images/android-install/6-install.png" width="180" alt="This app looks safe, Install"> | <img src="docs/images/android-install/7-open.png" width="180" alt="App installed, Open"> |
+
+*Screenshots are from a realme phone. Other brands word things a little differently, but the steps are the same.*
 
 > PocketPad isn't on the Google Play Store yet, so Android shows this one-time warning for any app installed from a website.
 

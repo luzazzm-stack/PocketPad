@@ -41,7 +41,10 @@ Asked about "unknown apps"? Tap **Settings → Allow**.
 </tr>
 </table>
 
-**📖 First time? Follow the [step-by-step guide](GUIDE.md)** — install, connect and play in about 5 minutes, with pictures.
+### 🌐 **[Open the PocketPad download page →](https://luzazzm-stack.github.io/PocketPad/)**
+The easiest way: big download buttons and a picture-by-picture install guide. Works great on your phone.
+
+**📖 Or read the [step-by-step guide](GUIDE.md)** here on GitHub.
 
 <sub>The buttons always give you the newest version. Older versions: [all releases](https://github.com/luzazzm-stack/PocketPad/releases).
 PocketPad asks Windows for **administrator** permission each time it starts — click **Yes**. It needs that to move the real mouse pointer in mouse mode; the gamepad works either way.</sub>

@@ -179,7 +179,7 @@ fun LayoutEditScreen(
                 BarButton("Save layout", Color(0xFF7AA2F7), Color(0xFF14151D),
                     Modifier.weight(1f)) { onSave(lay) }
                 BarButton("Reset all", Color(0xFF2A2E3F), Color(0xFF98A2C0),
-                    Modifier.width(84.dp)) { lay = PadLayout() }
+                    Modifier.width(84.dp)) { lay = defaultLayout() }
                 BarButton("Cancel", Color(0xFF2A2E3F), Color(0xFF98A2C0),
                     Modifier.width(78.dp)) { onCancel() }
             }
