@@ -12,19 +12,39 @@ Works on **Android 6.0 and newer** (QR scanning needs 7.0+; older phones type th
 
 ---
 
-## Install it (one time)
+## ⬇ Download
 
-Grab both from the [**Releases page**](https://github.com/luzazzm-stack/PocketPad/releases):
+**Never used GitHub? You're in the right place — just click the two big buttons.**
 
-- **PC:** run `PocketPad-Setup.exe` — next-next-finish. It installs the app, the
-  controller driver, the firewall rule, and a desktop icon. No .NET needed.
-  (If SmartScreen appears: *More info → Run anyway* — the app isn't code-signed yet.)
-  PocketPad asks for **administrator** each time it starts — say yes. Mouse mode
-  moves the real Windows pointer, and Windows blocks a normal-privilege program
-  from doing that whenever a window running as administrator has focus, which is
-  what you hit the moment you minimise PocketPad and something else comes
-  forward. The gamepad itself is unaffected; only the pointer needs it.
-- **Phone:** open `PocketPad.apk` on the phone and allow the install.
+<table>
+<tr>
+<td align="center" width="50%">
+
+### 💻 On your Windows PC
+
+<a href="https://github.com/luzazzm-stack/PocketPad/releases/latest/download/PocketPad-Setup.exe"><img src="https://img.shields.io/badge/Download%20for%20Windows-PocketPad--Setup.exe-2ea44f?style=for-the-badge&logo=windows&logoColor=white" alt="Download PocketPad for Windows"></a>
+
+Open the file → **Next → Install → Finish**.<br>
+Blue "Windows protected your PC" box? **More info → Run anyway**.
+
+</td>
+<td align="center" width="50%">
+
+### 📱 On your Android phone
+
+<a href="https://github.com/luzazzm-stack/PocketPad/releases/latest/download/PocketPad.apk"><img src="https://img.shields.io/badge/Download%20for%20Android-PocketPad.apk-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Download PocketPad for Android"></a>
+
+Tap this **on the phone** → open the file → **Install**.<br>
+Asked about "unknown apps"? Tap **Settings → Allow**.
+
+</td>
+</tr>
+</table>
+
+**📖 First time? Follow the [step-by-step guide](GUIDE.md)** — install, connect and play in about 5 minutes, with pictures.
+
+<sub>The buttons always give you the newest version. Older versions: [all releases](https://github.com/luzazzm-stack/PocketPad/releases).
+PocketPad asks Windows for **administrator** permission each time it starts — click **Yes**. It needs that to move the real mouse pointer in mouse mode; the gamepad works either way.</sub>
 
 ## How to use it
 
@@ -35,7 +55,7 @@ Double-click the PocketPad icon on your desktop. This window opens:
 ![The PocketPad for PC window showing the PC address, the code, and a QR code](docs/images/pc-app.png)
 
 - The **amber number** is your PC address
-- The **pink code** is new every time you open the app
+- The **pink code** is your PC's pairing code — it stays the same
 - The **QR code** is the shortcut that skips typing
 
 Keep this window open while you play. Closing it just tucks it away next to the
@@ -53,6 +73,7 @@ bottom box, tap **Connect**:
 ![The PocketPad phone connect screen with the address and code filled in](docs/images/phone-connect.png)
 
 PocketPad remembers your PC — from the second time it's just open → Connect.
+If the PC's address changes (new Wi-Fi), the phone finds it again by itself.
 Both devices must be on the **same Wi-Fi** (or the PC's own hotspot).
 
 ### 3 · Start your game
@@ -134,7 +155,8 @@ guide inside the app.
 | Problem | Fix |
 |---|---|
 | Connect fails | Same Wi-Fi on both? PC window open? Scan the QR — it can't mistype |
-| "Code has expired" | The code renews when the PC app opens. Use the one on screen now |
+| "Code has expired" | Scan the QR again — the code stays the same from then on |
+| Never connects on hotel / café / guest Wi-Fi | Those networks block devices from seeing each other. Use your phone's hotspot instead |
 | Game doesn't react | Connect first, *then* start the game. Already running? Restart it |
 | Delay is orange | Move closer to the router, or use the PC's hotspot |
 | Disconnects on its own | Turn Android battery optimisation **off** for PocketPad |
