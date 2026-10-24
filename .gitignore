@@ -27,3 +27,7 @@ Desktop.ini
 
 # retired dev deployment (superseded by the installer)
 PocketPad-PC/
+
+# TV build output
+tv/app/build/
+tv/pocketpad-tv
