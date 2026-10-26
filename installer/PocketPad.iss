@@ -36,7 +36,11 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ; place while reporting success. Must match MutexName in App.xaml.cs.
 AppMutex=PocketPadForPC_SingleInstance
 
+[Tasks]
+Name: "autostart"; Description: "Start PocketPad when I sign in to Windows (recommended - phones connect right away, also after a restart)"
+
 [Files]
+Source: "autostart.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "payload\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 Source: "redist\ViGEmBus_Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
@@ -46,6 +50,13 @@ Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
 Name: "{group}\PocketPad Manual"; Filename: "{app}\manual.html"
 
 [Run]
+; Sign-in task: PocketPad in the tray with admin rights, no UAC prompt, also on battery.
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\autostart.ps1"" -Exe ""{app}\{#AppExe}"""; \
+  Flags: runhidden waituntilterminated; Tasks: autostart
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\autostart.ps1"" -Remove"; \
+  Flags: runhidden waituntilterminated; Tasks: not autostart
 ; Controller driver. The redist is an Advanced Installer bootstrapper:
 ; /exenoui suppresses its own wizard, /qn the MSI UI, /norestart stops it
 ; rebooting the machine mid-install. Unswitched it opened a second, separate
@@ -81,6 +92,9 @@ Filename: "{app}\{#AppExe}"; Description: "Start {#AppName} now"; \
   Flags: postinstall nowait skipifsilent runasoriginaluser
 
 [UninstallRun]
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\autostart.ps1"" -Remove"; \
+  Flags: runhidden waituntilterminated; RunOnceId: "DelAutostart"
 ; stop the bundled adb server first, or adb.exe stays locked and is left behind
 Filename: "{app}\adb\adb.exe"; Parameters: "kill-server"; Flags: runhidden skipifdoesntexist; RunOnceId: "AdbKill"
 Filename: "{sys}\netsh.exe"; \

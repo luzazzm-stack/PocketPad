@@ -56,6 +56,9 @@ public partial class App : System.Windows.Application
             // cannot raise this window, which beats refusing to start.
             _showEvent = null;
         }
+        // "--tray": started by Windows at sign-in (installer's logon task). Run in the
+        // tray only - phones (Wi-Fi or USB) can connect at once, no window in the way.
+        bool trayOnly = e.Args.Any(a => a.Equals("--tray", StringComparison.OrdinalIgnoreCase));
         var window = new MainWindow();
         if (window.StartupFailed)
         {
@@ -69,7 +72,7 @@ public partial class App : System.Windows.Application
         {
             // No cross-launch signal available, so a second launch cannot raise
             // this window — but the app itself works fine. Run without it.
-            window.Show();
+            if (!trayOnly) window.Show();
             return;
         }
 
@@ -100,7 +103,7 @@ public partial class App : System.Windows.Application
         { IsBackground = true, Name = "PocketPad.ShowSignal" };
         _waiter.Start();
 
-        window.Show();
+        if (!trayOnly) window.Show();
     }
 
     protected override void OnExit(System.Windows.ExitEventArgs e)
