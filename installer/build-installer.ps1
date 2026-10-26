@@ -15,6 +15,17 @@ if (Test-Path (Join-Path $payload "PocketPad.App.exe")) {
   Move-Item (Join-Path $payload "PocketPad.App.exe") (Join-Path $payload "PocketPad for PC.exe") -Force
 }
 
+# 1b. adb (Android platform-tools) for USB play: PocketPad runs "adb reverse" for every
+#     plugged-in phone. Three files, copied from the Android SDK into redist\adb once.
+$adbSrc = Join-Path $PSScriptRoot "redist\adb"
+if (-not (Test-Path (Join-Path $adbSrc "adb.exe"))) {
+  $sdkTools = Join-Path $env:LOCALAPPDATA "Android\Sdk\platform-tools"
+  New-Item -ItemType Directory -Force -Path $adbSrc | Out-Null
+  foreach ($f in "adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll") { Copy-Item (Join-Path $sdkTools $f) $adbSrc }
+}
+New-Item -ItemType Directory -Force -Path (Join-Path $payload "adb") | Out-Null
+Copy-Item (Join-Path $adbSrc "*") (Join-Path $payload "adb") -Force
+
 # 2. driver redistributable must be present (downloaded once; not in git).
 #    It is compiled into PocketPad-Setup.exe and then executed with admin
 #    rights on every user's machine, so verify it on every build rather than

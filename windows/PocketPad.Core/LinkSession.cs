@@ -25,6 +25,8 @@ public sealed class LinkSession : IDisposable
     private readonly object _padLock = new();
     private readonly ControlServer _control;
     private readonly UdpStateListener _udp;
+    private readonly StreamStateListener _stream;
+    private readonly UsbBridge _usb = new();
     private readonly MouseInjector _mouse = new();
     private readonly CancellationTokenSource _cts = new();
     private long _packets;
@@ -44,6 +46,13 @@ public sealed class LinkSession : IDisposable
 
     /// <summary>Phone-measured round-trip: (player, ms).</summary>
     public event Action<int, int>? LatencyReported;
+
+    /// <summary>A phone plugged in by USB was set up and can now connect: (adb serial, model).</summary>
+    public event Action<string, string>? UsbPhoneReady
+    {
+        add => _usb.PhoneReady += value;
+        remove => _usb.PhoneReady -= value;
+    }
 
     public long PacketsReceived => Interlocked.Read(ref _packets);
 
@@ -70,6 +79,7 @@ public sealed class LinkSession : IDisposable
         IXbox360Controller? pad0 = null;
         ControlServer? control = null;
         UdpStateListener? udp = null;
+        StreamStateListener? stream = null;
         try
         {
             // Player 0's pad stays alive for the whole session so a game launched
@@ -80,9 +90,11 @@ public sealed class LinkSession : IDisposable
 
             control = new ControlServer(Token);
             udp = new UdpStateListener(discoveryFingerprint: Discovery.Fingerprint(Token));
+            stream = new StreamStateListener(udp);
         }
         catch
         {
+            stream?.Dispose();
             udp?.Dispose();
             control?.Dispose();
             try { pad0?.Disconnect(); } catch (InvalidOperationException) { /* never connected */ }
@@ -93,6 +105,7 @@ public sealed class LinkSession : IDisposable
         _pads[0] = pad0;
         _control = control;
         _udp = udp;
+        _stream = stream;
 
         _control.ClientConnected += (player, name, ep) =>
         {
@@ -141,7 +154,8 @@ public sealed class LinkSession : IDisposable
 
     /// <summary>Start both servers. Returns the running task (faults on fatal errors).</summary>
     public Task RunAsync() =>
-        Task.WhenAll(_control.RunAsync(_cts.Token), _udp.RunAsync(_cts.Token));
+        Task.WhenAll(_control.RunAsync(_cts.Token), _udp.RunAsync(_cts.Token),
+            _stream.RunAsync(_cts.Token), _usb.RunAsync(_cts.Token));
 
     /// <summary>Kick every connected phone off (the UI's Disconnect button).</summary>
     public void DisconnectPhones() => _control.DisconnectAll();
@@ -237,6 +251,7 @@ public sealed class LinkSession : IDisposable
             }
         }
         _control.Dispose();
+        _stream.Dispose();
         _udp.Dispose();
         _vigem.Dispose();
         _cts.Dispose();

@@ -93,7 +93,9 @@ public sealed class ControlServer : IDisposable
                 await SendAsync(stream, new Msg { T = "reject", Reason = "version" }, ct).ConfigureAwait(false);
                 return;
             }
-            if (hello.Token != _token)
+            // A phone on the USB cable arrives through adb reverse, i.e. from this PC's own
+            // loopback: being plugged in is the pairing, so it needs no code.
+            if (hello.Token != _token && !IPAddress.IsLoopback(remote.Address))
             {
                 await SendAsync(stream, new Msg { T = "reject", Reason = "token" }, ct).ConfigureAwait(false);
                 return;
@@ -110,7 +112,7 @@ public sealed class ControlServer : IDisposable
             }
 
             await SendAsync(stream,
-                new Msg { T = "welcome", V = ProtocolVersion, Udp = UdpStateListener.DefaultPort, Player = player }, ct)
+                new Msg { T = "welcome", V = ProtocolVersion, Udp = UdpStateListener.DefaultPort, Stream = StreamStateListener.DefaultPort, Player = player }, ct)
                 .ConfigureAwait(false);
             ClientConnected?.Invoke(player, hello.Name ?? "phone", remote);
 
@@ -183,6 +185,7 @@ public sealed class ControlServer : IDisposable
         [JsonPropertyName("name")] public string? Name { get; set; }
         [JsonPropertyName("token")] public string? Token { get; set; }
         [JsonPropertyName("udp")] public int? Udp { get; set; }
+        [JsonPropertyName("stream")] public int? Stream { get; set; }
         [JsonPropertyName("reason")] public string? Reason { get; set; }
         [JsonPropertyName("id")] public long? Id { get; set; }
         [JsonPropertyName("ts")] public long? Ts { get; set; }

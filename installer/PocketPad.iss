@@ -2,7 +2,7 @@
 ; Build with installer\build-installer.ps1 (publishes the app, then compiles this).
 
 #define AppName "PocketPad for PC"
-#define AppVersion "0.6.4"
+#define AppVersion "0.7.0"
 #define AppExe "PocketPad for PC.exe"
 
 [Setup]
@@ -81,6 +81,8 @@ Filename: "{app}\{#AppExe}"; Description: "Start {#AppName} now"; \
   Flags: postinstall nowait skipifsilent runasoriginaluser
 
 [UninstallRun]
+; stop the bundled adb server first, or adb.exe stays locked and is left behind
+Filename: "{app}\adb\adb.exe"; Parameters: "kill-server"; Flags: runhidden skipifdoesntexist; RunOnceId: "AdbKill"
 Filename: "{sys}\netsh.exe"; \
   Parameters: "advfirewall firewall delete rule name=""PocketPad for PC"""; \
   Flags: runhidden waituntilterminated; RunOnceId: "DelFwRule"

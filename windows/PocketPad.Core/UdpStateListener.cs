@@ -69,25 +69,38 @@ public sealed class UdpStateListener : IDisposable
                 continue;
             }
 
-            // Dispatch on the magic byte: pad state or trackpad.
-            ushort seq;
-            byte player;
-            bool isPad = StatePacket.TryDecode(result.Buffer, out var pad);
-            MousePacket mouse = default;
-            if (isPad) { seq = pad.Seq; player = pad.Player; }
-            else if (MousePacket.TryDecode(result.Buffer, out mouse)) { seq = mouse.Seq; player = mouse.Player; }
-            else continue;
+            Handle(result.Buffer, result.RemoteEndPoint);
+        }
+    }
 
+    private readonly object _seqLock = new();
+
+    /// <summary>
+    /// Accept one pad/trackpad packet from any transport - UDP here, or a USB stream
+    /// (<see cref="StreamStateListener"/>). Dispatches on the magic byte and drops stale
+    /// packets per player. Thread-safe: the two transports call it from different threads.
+    /// </summary>
+    public void Handle(byte[] buffer, IPEndPoint from)
+    {
+        ushort seq;
+        byte player;
+        bool isPad = StatePacket.TryDecode(buffer, out var pad);
+        MousePacket mouse = default;
+        if (isPad) { seq = pad.Seq; player = pad.Player; }
+        else if (MousePacket.TryDecode(buffer, out mouse)) { seq = mouse.Seq; player = mouse.Player; }
+        else return;
+
+        lock (_seqLock)
+        {
             if (!_first[player] && !StatePacket.IsNewer(seq, _lastSeq[player]))
-                continue; // stale or duplicate for this player
-
+                return; // stale or duplicate for this player
             _first[player] = false;
             _lastSeq[player] = seq;
             LastPacketUtc = DateTime.UtcNow;
-
-            if (isPad) StateReceived?.Invoke(pad, result.RemoteEndPoint);
-            else MouseReceived?.Invoke(mouse, result.RemoteEndPoint);
         }
+
+        if (isPad) StateReceived?.Invoke(pad, from);
+        else MouseReceived?.Invoke(mouse, from);
     }
 
     /// <summary>Reset one player's sequence tracking (call when that phone connects).</summary>

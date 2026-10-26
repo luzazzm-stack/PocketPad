@@ -138,6 +138,7 @@ class PadConnection(
         job = scope.launch {
             var socket: Socket? = null
             var udp: DatagramSocket? = null
+            var usbStream: Socket? = null
             try {
                 // ---- TCP handshake ----
                 val s = Socket().also { socket = it }
@@ -157,11 +158,21 @@ class PadConnection(
                     return@launch
                 }
                 val udpPort = reply.optInt("udp", 46821)
+                val streamPort = reply.optInt("stream", -1) // only a PC that serves USB sends this
                 val player = reply.optInt("player", 0) // our slot: stamped into every packet
                 onEvent(Event.Connected)
 
-                // ---- UDP sender: 125 Hz ----
-                val ds = DatagramSocket().also { udp = it }
+                // ---- sender: 125 Hz. Wi-Fi = UDP datagrams; USB (adb reverse to
+                // 127.0.0.1, which only carries TCP) = the same packets on a TCP
+                // stream, each prefixed by a length byte (PROTOCOL.md "USB").
+                val overUsb = isUsbHost(host) && streamPort > 0
+                val ds = if (overUsb) null else DatagramSocket().also { udp = it }
+                val usbOut = if (overUsb) Socket().also {
+                    usbStream = it
+                    it.tcpNoDelay = true
+                    it.connect(InetSocketAddress(host, streamPort), 4000)
+                }.getOutputStream() else null
+                val frame = ByteArray(1 + 64)
                 val addr = InetAddress.getByName(host)
                 val padBuf = ByteArray(StatePacket.SIZE)
                 val mouseBuf = ByteArray(MousePacket.SIZE)
@@ -170,7 +181,14 @@ class PadConnection(
                     var lastMode = Mode.PAD
 
                     fun send(b: ByteArray) {
-                        ds.send(DatagramPacket(b, b.size, addr, udpPort))
+                        if (usbOut != null) {
+                            frame[0] = b.size.toByte()
+                            System.arraycopy(b, 0, frame, 1, b.size)
+                            usbOut.write(frame, 0, b.size + 1)
+                            usbOut.flush()
+                        } else {
+                            ds!!.send(DatagramPacket(b, b.size, addr, udpPort))
+                        }
                         seq = (seq + 1) and 0xFFFF
                     }
 
@@ -247,6 +265,7 @@ class PadConnection(
                 if (isActive) onEvent(Event.Disconnected(e.message ?: e.javaClass.simpleName))
             } finally {
                 udp?.close()
+                usbStream?.close()
                 socket?.close()
             }
         }
@@ -255,6 +274,12 @@ class PadConnection(
     suspend fun close() {
         job?.cancelAndJoin()
         withContext(Dispatchers.IO) { /* sockets closed in finally */ }
+    }
+
+    companion object {
+        /** USB mode: the PC is reached through adb reverse on this phone's own loopback. */
+        const val USB_HOST = "127.0.0.1"
+        fun isUsbHost(host: String) = host.trim() == USB_HOST || host.trim() == "localhost"
     }
 
     private fun BufferedWriter.sendJson(build: JSONObject.() -> Unit) {

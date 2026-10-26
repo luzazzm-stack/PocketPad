@@ -139,8 +139,11 @@ class MainActivity : ComponentActivity() {
                 // [searched]: this attempt already came from discovery, so a
                 // failure is final instead of searching again in a loop.
                 fun connect(host: String, token: String, searched: Boolean = false) {
-                    ui = UiState.Connecting()
-                    prefs.edit().putString("host", host).putString("token", token).apply()
+                    val usb = PadConnection.isUsbHost(host)
+                    ui = UiState.Connecting(if (usb) "Connecting over USB…" else "Connecting…")
+                    // A USB link needs no address or code, so it must not overwrite the
+                    // remembered Wi-Fi PC.
+                    if (!usb) prefs.edit().putString("host", host).putString("token", token).apply()
                     val name = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
                     val conn = PadConnection(host.trim(), token.trim(), name)
                     conn.start { event ->
@@ -169,6 +172,34 @@ class MainActivity : ComponentActivity() {
                                         UiState.Idle(event.error?.let { friendlyError("lost", it) })
                             }
                         }
+                    }
+                }
+
+                // USB: when the PC app has set this phone up through the cable, the PC
+                // answers on this phone's own 127.0.0.1. Connect by itself the moment
+                // that appears (a plug-in), but not over and over while it stays up.
+                val idle = ui is UiState.Idle
+                androidx.compose.runtime.LaunchedEffect(idle) {
+                    if (!idle) return@LaunchedEffect
+                    var wasUp = true            // a cable already in at open still counts once:
+                    var first = true            // see the check below
+                    while (true) {
+                        val up = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            runCatching {
+                                java.net.Socket().use {
+                                    it.connect(java.net.InetSocketAddress(PadConnection.USB_HOST, 46822), 300)
+                                }
+                                true
+                            }.getOrDefault(false)
+                        }
+                        val lastError = (ui as? UiState.Idle)?.error
+                        if (up && (first && lastError == null || !wasUp)) {
+                            connect(PadConnection.USB_HOST, "")
+                            break
+                        }
+                        wasUp = up
+                        first = false
+                        kotlinx.coroutines.delay(1500)
                     }
                 }
 
@@ -387,8 +418,8 @@ private fun ConnectScreen(
                 }
             }
             Text(
-                if (lastHost.isNotBlank()) "remembered your last PC — just tap Connect"
-                else "scans or types — either works",
+                if (lastHost.isNotBlank()) "remembered your last PC — just tap Connect · or plug in USB"
+                else "scan, type — or plug in a USB cable and it connects by itself",
                 color = Color(0xFF4E5470),
                 fontSize = 10.5.sp,
                 modifier = Modifier.align(Alignment.CenterHorizontally),

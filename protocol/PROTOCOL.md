@@ -114,6 +114,22 @@ The token is shown as text beside the QR for manual entry. The ship app creates
 it once and keeps it (`%LOCALAPPDATA%PocketPadpairing-code.txt`), so a paired
 phone stays paired across PC restarts; dev tools may still use a per-launch one.
 
+## USB — adb reverse, TCP 46822 + TCP 46823
+
+A phone plugged in by USB (USB debugging on) is set up by the PC app with
+`adb reverse tcp:46822 tcp:46822` and `adb reverse tcp:46823 tcp:46823`, so the
+phone reaches the PC at its own `127.0.0.1`. The phone polls that address and
+connects by itself when it appears.
+
+- Control: the same TCP JSON-lines channel on 46822. The PC accepts any token
+  from a loopback peer (being plugged in is the pairing); `welcome` also carries
+  `"stream":46823`.
+- State/mouse packets: adb only tunnels TCP, so instead of UDP the phone opens a
+  TCP connection to `127.0.0.1:46823` and sends each 16/12-byte packet prefixed
+  by a `u8` length — exactly the Bluetooth framing. The PC listens on loopback
+  only and feeds frames into the same per-player sequence check as UDP.
+- Several phones can be plugged in at once; each gets its own player slot.
+
 ## Discovery — UDP 46821, 8 bytes
 
 Lets a paired phone find its PC again after the PC's address changes (new DHCP
