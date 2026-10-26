@@ -95,6 +95,8 @@ private fun friendlyError(kind: String, detail: String?): String = when {
         "Another phone is already connected to this PC."
     kind == "rejected" && detail == "version" ->
         "The PC app is a different version. Update both apps."
+    kind == "usb-failed" ->
+        "No PC on the USB cable. Plug the phone in, turn on USB debugging, tap Allow on the phone, and open PocketPad for PC."
     kind == "failed" ->
         "Couldn't find the PC. Check PocketPad for PC is open and both are on the same Wi-Fi."
     else -> "Connection lost. Open the PC app and connect again."
@@ -167,7 +169,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                         UiState.Connecting("Looking for your PC on this Wi-Fi…")
                                     } else if (ui is UiState.Connecting)
-                                        UiState.Idle(friendlyError("failed", event.error))
+                                        UiState.Idle(friendlyError(if (usb) "usb-failed" else "failed", event.error))
                                     else
                                         UiState.Idle(event.error?.let { friendlyError("lost", it) })
                             }
@@ -214,6 +216,7 @@ class MainActivity : ComponentActivity() {
                         lastHost = prefs.getString("host", "") ?: "",
                         lastToken = prefs.getString("token", "") ?: "",
                         onConnect = ::connect,
+                        onUsb = { connect(PadConnection.USB_HOST, "") },
                         onHelp = { showHelp = true },
                     )
                     is UiState.Connecting -> Box(
@@ -283,6 +286,7 @@ private fun ConnectScreen(
     lastHost: String,
     lastToken: String,
     onConnect: (host: String, token: String) -> Unit,
+    onUsb: () -> Unit,
     onHelp: () -> Unit,
 ) {
     var host by rememberSaveable { mutableStateOf(lastHost) }
@@ -417,9 +421,17 @@ private fun ConnectScreen(
                     ) { QrIcon(size = 22.dp, color = Color(0xFF98A2C0)) }
                 }
             }
+            // USB: no address or code - the PC app sets the cable link up by itself.
+            OutlinedButton(
+                onClick = onUsb,
+                shape = RoundedCornerShape(11.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF31354A)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC6CEE8)),
+                modifier = Modifier.fillMaxWidth().height(42.dp),
+            ) { Text("Connect with USB cable", fontWeight = FontWeight.SemiBold) }
             Text(
-                if (lastHost.isNotBlank()) "remembered your last PC — just tap Connect · or plug in USB"
-                else "scan, type — or plug in a USB cable and it connects by itself",
+                if (lastHost.isNotBlank()) "remembered your last PC — just tap Connect"
+                else "scan, type — or use the USB cable",
                 color = Color(0xFF4E5470),
                 fontSize = 10.5.sp,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
