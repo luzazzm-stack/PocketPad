@@ -13,6 +13,7 @@ namespace PocketPad.Core;
 public sealed class UsbBridge
 {
     private readonly HashSet<string> _ready = new();
+    private int _checks;
 
     /// <summary>A phone was set up for USB: (adb serial, model).</summary>
     public event Action<string, string>? PhoneReady;
@@ -54,16 +55,30 @@ public sealed class UsbBridge
                     if (parts.Length < 2 || parts[1] != "device")
                         continue;                  // header, "unauthorized", "offline"
                     var serial = parts[0];
-                    seen.Add(serial);
-                    if (_ready.Contains(serial))
-                        continue;
+                    // Key on the transport id too: it changes whenever the phone's USB link
+                    // resets (mode switch, the other phone plugged in, adb restart), and a
+                    // reset wipes that phone's reverse rules. Keying on the serial alone
+                    // left the second phone set up "already" but unreachable.
+                    var transport = parts.FirstOrDefault(p => p.StartsWith("transport_id:")) ?? "";
+                    var key = serial + "|" + transport;
+                    seen.Add(key);
+                    if (_ready.Contains(key))
+                    {
+                        // still verify now and then: a rule can vanish without a new transport id
+                        if (++_checks % 5 != 0)
+                            continue;
+                        var list = await Run(adb, $"-s {serial} reverse --list", ct).ConfigureAwait(false);
+                        if (list.Contains($"tcp:{ControlServer.DefaultPort}"))
+                            continue;
+                        _ready.Remove(key);
+                    }
                     var ok = await Run(adb, $"-s {serial} reverse tcp:{ControlServer.DefaultPort} tcp:{ControlServer.DefaultPort}", ct)
                         .ConfigureAwait(false);
                     await Run(adb, $"-s {serial} reverse tcp:{StreamStateListener.DefaultPort} tcp:{StreamStateListener.DefaultPort}", ct)
                         .ConfigureAwait(false);
                     if (ok.Contains("error", StringComparison.OrdinalIgnoreCase))
                         continue;                  // try again next round
-                    _ready.Add(serial);
+                    _ready.Add(key);
                     var model = parts.FirstOrDefault(p => p.StartsWith("model:"))?[6..] ?? serial;
                     PhoneReady?.Invoke(serial, model.Replace('_', ' '));
                 }

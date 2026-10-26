@@ -2,7 +2,7 @@
 ; Build with installer\build-installer.ps1 (publishes the app, then compiles this).
 
 #define AppName "PocketPad for PC"
-#define AppVersion "0.7.0"
+#define AppVersion "0.7.1"
 #define AppExe "PocketPad for PC.exe"
 
 [Setup]
@@ -86,3 +86,16 @@ Filename: "{app}\adb\adb.exe"; Parameters: "kill-server"; Flags: runhidden skipi
 Filename: "{sys}\netsh.exe"; \
   Parameters: "advfirewall firewall delete rule name=""PocketPad for PC"""; \
   Flags: runhidden waituntilterminated; RunOnceId: "DelFwRule"
+
+[Code]
+// An update must stop the bundled adb server first: it keeps adb.exe locked and the
+// file copy fails ("access denied", setup exit code 5).
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Code: Integer;
+begin
+  if FileExists(ExpandConstant('{app}\adb\adb.exe')) then
+    Exec(ExpandConstant('{app}\adb\adb.exe'), 'kill-server', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM adb.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Result := '';
+end;
