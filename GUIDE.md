@@ -90,7 +90,7 @@ The cable is the steadiest connection, and several phones can be plugged in at o
 
 1. **Once per phone:** Settings → About phone → tap **Build number** 7 times. Then Settings → Developer options → turn on **USB debugging**.
 2. **Plug the phone into the PC** and tap **Allow** on the *"Allow USB debugging?"* popup (tick *Always allow*).
-3. Open PocketPad for PC and the phone app — **it connects over the cable by itself**. No QR code, no code to type.
+3. Open the phone app and tap **Connect with USB cable**. No QR code, no code to type.
 
 ---
 

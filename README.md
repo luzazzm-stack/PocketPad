@@ -120,7 +120,7 @@ the further you push, the faster you go.
 
 ## Play over a USB cable
 
-Steadier than Wi-Fi and great for several phones at once. Turn on **USB debugging** on the phone once (Settings → About phone → tap *Build number* 7 times → Developer options → *USB debugging*), plug it in, tap **Allow** — and it connects over the cable by itself. No code needed.
+Steadier than Wi-Fi and great for several phones at once. Turn on **USB debugging** on the phone once (Settings → About phone → tap *Build number* 7 times → Developer options → *USB debugging*), plug it in, tap **Allow**, then tap **Connect with USB cable** in the phone app. No code needed.
 
 ## Play with friends
 

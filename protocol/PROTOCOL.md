@@ -118,8 +118,8 @@ phone stays paired across PC restarts; dev tools may still use a per-launch one.
 
 A phone plugged in by USB (USB debugging on) is set up by the PC app with
 `adb reverse tcp:46822 tcp:46822` and `adb reverse tcp:46823 tcp:46823`, so the
-phone reaches the PC at its own `127.0.0.1`. The phone polls that address and
-connects by itself when it appears.
+phone reaches the PC at its own `127.0.0.1`. The phone connects there when the
+user taps "Connect with USB cable" (it does not connect on its own).
 
 - Control: the same TCP JSON-lines channel on 46822. The PC accepts any token
   from a loopback peer (being plugged in is the pairing); `welcome` also carries
