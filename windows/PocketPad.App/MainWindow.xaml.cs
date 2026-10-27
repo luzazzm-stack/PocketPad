@@ -97,10 +97,10 @@ public partial class MainWindow : Window
             }
             RefreshPhones();
             ShowView(ConnectedView);
+            // No pop-up per connect: a USB phone can reconnect several times (cable power
+            // blips), and every balloon became a Windows notification that piled up in the
+            // notification centre. The window and the tray tooltip show who is connected.
             _tray!.Text = $"PocketPad — {_phones.Count} connected";
-            _tray.ShowBalloonTip(1800, "PocketPad",
-                $"{name} connected as player {player + 1}. Start your game!",
-                System.Windows.Forms.ToolTipIcon.Info);
         });
 
         _session.PhoneDisconnected += (player, remaining) => Dispatcher.Invoke(() =>
