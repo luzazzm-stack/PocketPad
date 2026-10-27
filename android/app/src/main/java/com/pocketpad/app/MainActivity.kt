@@ -177,34 +177,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // USB: when the PC app has set this phone up through the cable, the PC
-                // answers on this phone's own 127.0.0.1. Connect by itself the moment
-                // that appears (a plug-in), but not over and over while it stays up.
-                val idle = ui is UiState.Idle
-                androidx.compose.runtime.LaunchedEffect(idle) {
-                    if (!idle) return@LaunchedEffect
-                    var wasUp = true            // a cable already in at open still counts once:
-                    var first = true            // see the check below
-                    while (true) {
-                        val up = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                            runCatching {
-                                java.net.Socket().use {
-                                    it.connect(java.net.InetSocketAddress(PadConnection.USB_HOST, 46822), 300)
-                                }
-                                true
-                            }.getOrDefault(false)
-                        }
-                        val lastError = (ui as? UiState.Idle)?.error
-                        if (up && (first && lastError == null || !wasUp)) {
-                            connect(PadConnection.USB_HOST, "")
-                            break
-                        }
-                        wasUp = up
-                        first = false
-                        kotlinx.coroutines.delay(1500)
-                    }
-                }
-
                 if (showHelp) {
                     HelpScreen(onBack = { showHelp = false })
                     return@MaterialTheme
