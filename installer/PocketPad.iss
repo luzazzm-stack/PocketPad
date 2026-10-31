@@ -1,8 +1,8 @@
-; PocketPad for PC — one-click installer
+﻿; PocketPad for PC — one-click installer
 ; Build with installer\build-installer.ps1 (publishes the app, then compiles this).
 
 #define AppName "PocketPad for PC"
-#define AppVersion "0.7.1"
+#define AppVersion "0.7.2"
 #define AppExe "PocketPad for PC.exe"
 
 [Setup]
@@ -88,8 +88,11 @@ Filename: "{sys}\netsh.exe"; \
 ; and the named Mutex it creates carries that account's DACL. Launching as the
 ; original user costs one UAC prompt and matches what the README and manual
 ; already tell people to expect on every launch.
+; shellexec is required with runasoriginaluser: the original user's token is not
+; elevated, so a plain CreateProcess of this requireAdministrator exe fails with
+; code 740. ShellExecute is what raises the UAC prompt.
 Filename: "{app}\{#AppExe}"; Description: "Start {#AppName} now"; \
-  Flags: postinstall nowait skipifsilent runasoriginaluser
+  Flags: postinstall nowait skipifsilent runasoriginaluser shellexec
 
 [UninstallRun]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
